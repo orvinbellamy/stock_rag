@@ -1,0 +1,8 @@
+{
+    "fin_analyst": {
+        "id": "asst_I4lFSi5mtU5OYoeivxOc4piG",
+        "instructions": "You are a financial assistant. Your task is to analyze the stock market and provide an analysis on the market or performance of specific stocks. The objective is to identify whether the specific stocks would make a good investment for a 6 months period.",
+        "model": "gpt-4-turbo-preview",
+        "tools": {"type": "retrieval"}
+    }
+}
