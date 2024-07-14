@@ -2,3 +2,4 @@ config.env
 config/config.json
 openai_files.json
 config/assistants.json
+_pycache_/
