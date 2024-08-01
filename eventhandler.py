@@ -48,7 +48,7 @@ class ThreadManager():
 						'created_at': created_at, 'file_ids': file_ids, 'role': role, 'run_id': run_id,
 						'message_text': message_text}
 		
-		dic_message['0'] = dic_message
+		self.dic_thread['0'] = dic_message
 		
 
 	def get_last_message(self):
@@ -68,5 +68,7 @@ class ThreadManager():
 						'message_text': message_text}
 
 		max_key = max(int(key) for key in self.dic_thread.keys())
+
+		self.dic_thread[max_key] = dic_message
 
 		return dic_message
