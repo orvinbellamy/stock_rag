@@ -9,6 +9,7 @@ class AgentHandler():
 		self._client = client
 		self.assistant_id = assistant_id
 		self.dic_agent = dic_agent
+		self.thread = thread
 		self.assistant = client.beta.assistants.update(
 			assistant_id=dic_agent['fin_analyst']['id'], 
 			instructions=dic_agent['fin_analyst']['instructions'],
@@ -52,4 +53,3 @@ class AgentHandler():
 		dic_file[assistant_name] = self.dic_agent
   
 		print(f"{assistant_name} properties in main dictionary has been updated.")
-  
