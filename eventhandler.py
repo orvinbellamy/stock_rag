@@ -1,5 +1,6 @@
 from typing_extensions import override
-from openai import AssistantEventHandler
+from openai import AssistantEventHandler, OpenAI
+from agenthandler import AgentHandler
  
 # First, we create a EventHandler class to define
 # how we want to handle the events in the response stream.
@@ -27,12 +28,12 @@ class EventHandler(AssistantEventHandler):
 						print(f"\n{output.logs}", flush=True)
 
 class ThreadManager():
-	def __init__(self, client, messages: list):
+	def __init__(self, client : OpenAI, messages : list):
 		# self.thread_id = thread_id
 		
 		self._client = client
-		self.dic_thread = []
-		self.thread = self.client.beta.threads.create(messages=messages)
+		self.dic_thread = {}
+		self.thread = self._client.beta.threads.create(messages=messages)
 		self.thread_id = self.thread.id
 
 		# Get the first message stored
@@ -45,7 +46,22 @@ class ThreadManager():
 		file_ids = message_data.attachments
 		role = message_data.role
 		run_id = message_data.run_id
-		message_text = message_data.content[0].text.value
+
+		for content in message_data.content:
+			
+			if content.type == 'text':
+				message_text = content.text.value
+
+			elif content.type == 'image_file':
+				file_id = content.image_file.file_id
+				file = self._client.files.content(file_id)
+				file.write_to_file(f'images/{file_id}.png')
+				message_text = f'Image generated: {file_id}'
+				print(f'Image generated: {file_id}')
+			
+			else:
+				message_text = 'Unidentified content type'
+		
 
 		dic_message = {
 			'assistant_id': assistant_id, 
@@ -64,39 +80,70 @@ class ThreadManager():
 		# Get the list of messages in the thread
 		messages_data = messages.data
 
+		messages_combined = []
+
 		# For now this records multiple messages from assistant separately
 		# Need to combine them together to make them one single string
 		for message in messages_data:
 			
+			# If message already exists in dic_thread
 			if message.id in self.dic_thread.keys():
-				break
+				
+				# If there is no new message, return
+				if messages_combined == []:
+					print('No new message unrecorded.')
+					return
+				
+				# If there is at least one new message, then proceed normally
+				else:
+					break
+			
+			# If message doesn't exist in dic_thread, we add them
 			else:
-				message_id = message.id
-				assistant_id = message.assistant_id
-				created_at = message.created_at
-				file_ids = message.attachments
-				role = message.role
-				run_id = message.run_id
-				message_text = message.content[0].text.value # this needs to be fixed because there can be multiple contents
+				for content in message.content:
+			
+					if content.type == 'text':
+						message_text = content.text.value
 
-				dic_message = {
-					'assistant_id': assistant_id, 
-					'created_at': created_at,
-					'file_ids': file_ids,
-					'role': role, 
-					'run_id': run_id,
-					'message_text': message_text
-					}
+					elif content.type == 'image_file':
+						file_id = content.image_file.file_id
+						file = self._client.files.content(file_id)
+						file.write_to_file(f'images/{file_id}.png')
+						message_text = f'Image generated: {file_id}'
+						print(f'Image generated: {file_id}')
+					
+					else:
+						message_text = 'Unidentified content type'
 
-				self.dic_thread[message_id] = dic_message
+				messages_combined += [message_text]
+		
+		messages_combined_string = '\n'.join(messages_combined)
+
+		message_id = message.id
+		assistant_id = message.assistant_id
+		created_at = message.created_at
+		file_ids = message.attachments
+		role = message.role
+		run_id = message.run_id
+
+		dic_message = {
+			'assistant_id': assistant_id, 
+			'created_at': created_at,
+			'file_ids': file_ids,
+			'role': role, 
+			'run_id': run_id,
+			'message_text': messages_combined_string
+			}
+
+		self.dic_thread[message_id] = dic_message
 
 		# return dic_message
 	
-	def run_thread(self, assistant_id : str, message : list = None):
+	def run_thread(self, assistant : AgentHandler, message : list = None):
 		
 		with self._client.beta.threads.runs.stream(
 			thread_id=self.thread_id,
-			assistant_id=assistant_id,
+			assistant_id=assistant.assistant_id,
 			event_handler=EventHandler(),
 			additional_messages=message,
 		) as stream:

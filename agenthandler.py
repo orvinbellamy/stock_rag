@@ -2,20 +2,19 @@ import pandas as pd
 import openai
 from openai import OpenAI
 import json
-from eventhandler import ThreadManager
 
 class AgentHandler():
-	def __init__(self, client, assistant_id: str, thread: ThreadManager, dic_agent: dict):
+	def __init__(self, client : OpenAI, assistant_name : str, dic_agent: dict):
 		self._client = client
-		self.assistant_id = assistant_id
+		self.assistant_name = assistant_name
+		self.assistant_id = dic_agent[assistant_name]['id']
 		self.dic_agent = dic_agent
-		self.thread = thread
 		self.assistant = client.beta.assistants.update(
-			assistant_id=dic_agent['fin_analyst']['id'], 
-			instructions=dic_agent['fin_analyst']['instructions'],
-			model=dic_agent['fin_analyst']['model'],
-			tools=dic_agent['fin_analyst']['tools'],
-			tool_resources=['fin_analyst']['tool_resources']
+			assistant_id=dic_agent[assistant_name]['id'], 
+			instructions=dic_agent[assistant_name]['instructions'],
+			model=dic_agent[assistant_name]['model'],
+			tools=dic_agent[assistant_name]['tools'],
+			tool_resources=dic_agent[assistant_name]['tool_resources']
 		)
   
 	def update_agent(self, dic_file : dict, assistant_name : str, instructions : str = None, model : str = None, tools : list = None, tool_resources : dict = None):
