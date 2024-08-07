@@ -1,5 +1,5 @@
 config.env
-config/config.json
+config/
 openai_files.json
 openai_upload_files/
 openai_upload_files/openai_files.json

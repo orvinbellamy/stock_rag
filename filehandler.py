@@ -4,7 +4,7 @@ from openai import OpenAI
 import json
 
 class FileHandler:
-    def __init__(self, df: pd.DataFrame, dic_file: dict, file_name: str, file_path: str, client: OpenAI):
+    def __init__(self, df: pd.DataFrame, dic_file: dict, dic_file_name: str, file_name: str, file_path: str, client: OpenAI,  dic_file_path: str = ''):
         
         self._client = client
         self._dic_file = dic_file
@@ -12,12 +12,14 @@ class FileHandler:
         self.file_name = file_name
         self.file_path = file_path
         self.file_id = dic_file[file_name]
+        self._dic_file_name = dic_file_name
+        self._dic_file_path = dic_file_path
 
         # Make sure the csv is always updated
         df.to_csv(f"{file_path}{file_name}", index=False)
 
     # Delete the file from openai and 
-    def update_openai_file(self, dic_file: dict, dic_file_name: str, dic_file_path: str = ''):
+    def update_openai_file(self, dic_file: dict):
         
         # Try deleting file from openai
         try:
@@ -41,6 +43,6 @@ class FileHandler:
 
         dic_file[self.file_name] = self.file_id
     
-        with open(f"{dic_file_path}{dic_file_name}", 'w') as json_file:
+        with open(f"{self._dic_file_path}{self._dic_file_name}", 'w') as json_file:
             json.dump(self._dic_file, json_file)
-            print(f"{dic_file_path}{dic_file_name} file has been updated")
+            print(f"{self._dic_file_path}{self._dic_file_name} file has been updated")
