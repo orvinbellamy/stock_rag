@@ -140,8 +140,33 @@ class ThreadManager():
 
 		# return dic_message
 	
-	def run_thread(self, assistant : AgentHandler, message : list = None):
+	def run_thread(self, assistant: AgentHandler, prompt:list = None, attachments:list = None):
 		
+		if prompt is None and attachments is not None:
+			raise ValueError('Attachment is provided without prompt')
+
+		attachment_list = []
+
+		# Format all file_ids provided in attachments
+		for file in attachments:
+			list_plc = [
+				{
+					'file_id': file,
+					'tools': [{'type': 'code_interpreter'}]
+				}
+			]
+
+			# Add it to attachment_list
+			attachment_list += list_plc
+
+		message = [
+			{
+				'role': 'user',
+				'content': prompt,
+				'attachments': attachment_list
+			}
+		]
+
 		with self._client.beta.threads.runs.stream(
 			thread_id=self.thread_id,
 			assistant_id=assistant.assistant_id,
