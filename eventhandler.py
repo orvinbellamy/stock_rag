@@ -73,6 +73,7 @@ class ThreadManager():
 			}
 		
 		self.dic_thread[message_id] = dic_message
+		self.last_message = message_text
 
 	def get_last_message(self):
 		messages = self._client.beta.threads.messages.list(thread_id=self.thread_id)
@@ -88,7 +89,7 @@ class ThreadManager():
 			
 			# If message already exists in dic_thread
 			if message.id in self.dic_thread.keys():
-				
+    
 				# If there is no new message, return
 				if messages_combined == []:
 					print('No new message unrecorded.')
@@ -115,16 +116,15 @@ class ThreadManager():
 					else:
 						message_text = 'Unidentified content type'
 
-				messages_combined += [message_text]
-		
-		messages_combined_string = '\n'.join(messages_combined)
+					messages_combined += [message_text]
+					message_id = message.id
+					assistant_id = message.assistant_id
+					created_at = message.created_at
+					file_ids = message.attachments
+					role = message.role
+					run_id = message.run_id
 
-		message_id = message.id
-		assistant_id = message.assistant_id
-		created_at = message.created_at
-		file_ids = message.attachments
-		role = message.role
-		run_id = message.run_id
+		messages_combined_string = '\n'.join(messages_combined)
 
 		dic_message = {
 			'assistant_id': assistant_id, 
@@ -136,6 +136,7 @@ class ThreadManager():
 			}
 
 		self.dic_thread[message_id] = dic_message
+		self.last_message = messages_combined_string
 
 		# return dic_message
 	
