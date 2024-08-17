@@ -4,7 +4,7 @@ from openai import OpenAI
 import json
 
 class AgentHandler():
-	def __init__(self, client: OpenAI, new: bool, dic_file: dict, dic_file_name: str, assistant_name: str, instructions: str = None, model: str = None, tools: list = None, tool_resources: dict = None, dic_file_path: str = ''):
+	def __init__(self, client: OpenAI, new: bool, dic_file: dict, dic_file_name: str, assistant_name: str, instructions: str = None, model: str = None, tools: list = [], tool_resources: dict = {}, dic_file_path: str = ''):
 		
 		self._client = client
 		self.assistant_name = assistant_name
@@ -52,6 +52,8 @@ class AgentHandler():
 				tools=dic_file[assistant_name]['tools'],
 				tool_resources=dic_file[assistant_name]['tool_resources']
 			)
+
+			print(f'Assistant has been updated, name: {assistant_name}, id: {self.assistant.id}')
   
 	def update_agent(self, assistant_name : str, dic_file : dict, dic_file_path : str = '', instructions : str = None, model : str = None, tools : list = None, tool_resources : dict = None):
 		

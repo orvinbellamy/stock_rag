@@ -1,6 +1,7 @@
 from typing_extensions import override
 from openai import AssistantEventHandler, OpenAI
 from agenthandler import AgentHandler
+import time
  
 # First, we create a EventHandler class to define
 # how we want to handle the events in the response stream.
@@ -28,12 +29,37 @@ class EventHandler(AssistantEventHandler):
 						print(f"\n{output.logs}", flush=True)
 
 class ThreadManager():
-	def __init__(self, client : OpenAI, messages : list):
+	def __init__(self, client: OpenAI, prompt: str, attachments: list):
 		# self.thread_id = thread_id
 		
+		if prompt is None and attachments is not None:
+			raise ValueError('Attachment is provided without prompt')
+
+		attachment_list = []
+
+		# Format all file_ids provided in attachments
+		for file in attachments:
+			list_plc = [
+				{
+					'file_id': file,
+					'tools': [{'type': 'code_interpreter'}]
+				}
+			]
+
+			# Add it to attachment_list
+			attachment_list += list_plc
+
+		message = [
+			{
+				'role': 'user',
+				'content': prompt,
+				'attachments': attachment_list
+			}
+		]
+
 		self._client = client
 		self.dic_thread = {}
-		self.thread = self._client.beta.threads.create(messages=messages)
+		self.thread = self._client.beta.threads.create(messages=message)
 		self.thread_id = self.thread.id
 
 		# Get the first message stored
@@ -181,3 +207,46 @@ class ThreadManager():
 
 		self._client.beta.threads.delete(thread_id=self.thread_id)
 		print(f"thread: {self.thread_id} has been deleted.")
+
+
+## Manually checking run status of a thread
+## Primivite, not needed
+def check_run_status(client, thread_id: str, run_id: str, n_tries: int, wait_time):
+    
+    ## Wait until status is completed
+    for i in range(0, n_tries):
+
+        # Retrieve the latest run
+        run_retrieve = client.beta.threads.runs.retrieve(
+            thread_id=thread_id,
+            run_id=run_id
+        )
+
+        # Get the run status
+        run_status = run_retrieve.status
+
+        # Check run status
+        if run_status == 'completed':
+            print('Run is completed')
+            return f'Run is completed (run_id: {run_id}, thread_id {thread_id})'
+        elif run_status == 'in_progress':
+            print('Run is in progress')
+            pass
+        elif run_status == 'queued':
+            print('Run is queued')
+            pass
+        elif run_status == 'cancelling':
+            print('Run is cancelling')
+            pass
+        elif run_status == 'cancelled':
+            raise ValueError(f'Error: run is cancelled (run_id: {run_id}, thread_id {thread_id})')
+        elif run_status == 'failed':
+            raise ValueError(f'Error: run has failed (run_id: {run_id}, thread_id {thread_id})')
+        elif run_status == 'expired':
+            raise ValueError(f'Error: run has expired (run_id: {run_id}, thread_id {thread_id})')
+        elif run_status == 'requires_action':
+            print('Action is required')
+            return f'Action required (run_id: {run_id}, thread_id {thread_id})'
+
+        # Sleep to give time for the run to process
+        time.sleep(wait_time)
