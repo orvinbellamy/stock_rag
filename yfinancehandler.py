@@ -2,7 +2,7 @@ import pandas as pd
 import yfinance as yf
 
 class YFHandler():
-    def __init__(self, stock_list: str | list, schemas: dict):
+    def __init__(self, stock_list: list, schemas: dict):
         
         self.stocks = yf.Tickers(stock_list)
         self.stock_list = stock_list

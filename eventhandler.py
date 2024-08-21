@@ -29,7 +29,7 @@ class EventHandler(AssistantEventHandler):
 						print(f"\n{output.logs}", flush=True)
 
 class ThreadManager():
-	def __init__(self, client: OpenAI, prompt: str, attachments: list):
+	def __init__(self, client: OpenAI, prompt: str, attachments: list = []):
 		# self.thread_id = thread_id
 		
 		if prompt is None and attachments is not None:
@@ -61,6 +61,7 @@ class ThreadManager():
 		self.dic_thread = {}
 		self.thread = self._client.beta.threads.create(messages=message)
 		self.thread_id = self.thread.id
+		self.messages = self._client.beta.threads.messages.list(thread_id=self.thread_id).data
 
 		# Get the first message stored
 		message = client.beta.threads.messages.list(thread_id=self.thread_id)
@@ -166,9 +167,9 @@ class ThreadManager():
 
 		# return dic_message
 	
-	def run_thread(self, assistant: AgentHandler, prompt:list = None, attachments:list = None):
+	def run_thread(self, assistant: AgentHandler, prompt:str = None, attachments:list = []):
 		
-		if prompt is None and attachments is not None:
+		if prompt is None and len(attachments) > 0:
 			raise ValueError('Attachment is provided without prompt')
 
 		attachment_list = []
