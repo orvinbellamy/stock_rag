@@ -30,7 +30,6 @@ class EventHandler(AssistantEventHandler):
 
 class ThreadManager():
 	def __init__(self, client: OpenAI, prompt: str, attachments: list = []):
-		# self.thread_id = thread_id
 		
 		if prompt is None and attachments is not None:
 			raise ValueError('Attachment is provided without prompt')
@@ -58,10 +57,9 @@ class ThreadManager():
 		]
 
 		self._client = client
-		self.dic_thread = {}
 		self.thread = self._client.beta.threads.create(messages=message)
 		self.thread_id = self.thread.id
-		self.messages = self._client.beta.threads.messages.list(thread_id=self.thread_id).data
+		self.messages = []
 
 		# Get the first message stored
 		message = client.beta.threads.messages.list(thread_id=self.thread_id)
@@ -91,6 +89,7 @@ class ThreadManager():
 		
 
 		dic_message = {
+			'message_id': message_id,
 			'assistant_id': assistant_id, 
 			'created_at': created_at, 
 			'file_ids': file_ids, 
@@ -99,7 +98,7 @@ class ThreadManager():
 			'message_text': message_text
 			}
 		
-		self.dic_thread[message_id] = dic_message
+		self.messages += [dic_message]
 		self.last_message = message_text
 
 	def get_last_message(self):
@@ -110,12 +109,15 @@ class ThreadManager():
 
 		messages_combined = []
 
+		# Get all existing message_id
+		existing_message_id = [dic['message_id'] for dic in self.messages]
+
 		# For now this records multiple messages from assistant separately
 		# Need to combine them together to make them one single string
 		for message in messages_data:
 			
 			# If message already exists in dic_thread
-			if message.id in self.dic_thread.keys():
+			if message.id in existing_message_id:
     
 				# If there is no new message, return
 				if messages_combined == []:
@@ -154,6 +156,7 @@ class ThreadManager():
 		messages_combined_string = '\n'.join(messages_combined)
 
 		dic_message = {
+			'message_id': message_id,
 			'assistant_id': assistant_id, 
 			'created_at': created_at,
 			'file_ids': file_ids,
@@ -162,45 +165,53 @@ class ThreadManager():
 			'message_text': messages_combined_string
 			}
 
-		self.dic_thread[message_id] = dic_message
+		self.messages += [dic_message]
 		self.last_message = messages_combined_string
-
-		# return dic_message
 	
 	def run_thread(self, assistant: AgentHandler, prompt:str = None, attachments:list = []):
 		
 		if prompt is None and len(attachments) > 0:
 			raise ValueError('Attachment is provided without prompt')
+		
+		elif prompt is None:
 
-		attachment_list = []
+			with self._client.beta.threads.runs.stream(
+				thread_id=self.thread_id,
+				assistant_id=assistant.assistant_id,
+				event_handler=EventHandler()
+			) as stream:
+				stream.until_done()
+		
+		elif prompt is not None:
+			attachment_list = []
 
-		# Format all file_ids provided in attachments
-		for file in attachments:
-			list_plc = [
+			# Format all file_ids provided in attachments
+			for file in attachments:
+				list_plc = [
+					{
+						'file_id': file,
+						'tools': [{'type': 'code_interpreter'}]
+					}
+				]
+
+				# Add it to attachment_list
+				attachment_list += list_plc
+
+			message = [
 				{
-					'file_id': file,
-					'tools': [{'type': 'code_interpreter'}]
+					'role': 'user',
+					'content': prompt,
+					'attachments': attachment_list
 				}
 			]
 
-			# Add it to attachment_list
-			attachment_list += list_plc
-
-		message = [
-			{
-				'role': 'user',
-				'content': prompt,
-				'attachments': attachment_list
-			}
-		]
-
-		with self._client.beta.threads.runs.stream(
-			thread_id=self.thread_id,
-			assistant_id=assistant.assistant_id,
-			event_handler=EventHandler(),
-			additional_messages=message,
-		) as stream:
-			stream.until_done()
+			with self._client.beta.threads.runs.stream(
+				thread_id=self.thread_id,
+				assistant_id=assistant.assistant_id,
+				event_handler=EventHandler(),
+				additional_messages=message,
+			) as stream:
+				stream.until_done()
 
 		self.get_last_message()
 	
