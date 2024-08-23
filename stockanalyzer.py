@@ -1,4 +1,5 @@
 import json
+import openai
 from openai import OpenAI
 from yfinancehandler import YFHandler
 from filehandler import FileHandler
@@ -9,8 +10,13 @@ from eventhandler import ThreadManager
 with open('config/dataframe_schemas.json', 'r') as f:
     schemas = json.load(f)
 
-def analyze_stock(client: OpenAI, ticker: list):
+def analyze_stock(ticker: list, dic_files: dict, dic_assistants: dict):
 	
+	client = OpenAI()
+
+	FILE_PATH = 'openai_upload_files/'
+	OPENAI_DIC_FILE_NAME = 'openai_files.json'
+
 	yf_handler = YFHandler(stock_list=ticker, schemas=schemas)
 
 	df_stocks = yf_handler.import_stocks()
