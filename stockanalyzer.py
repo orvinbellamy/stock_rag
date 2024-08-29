@@ -1,5 +1,6 @@
 import json
 import openai
+from typing import Literal
 from openai import OpenAI
 from yfinancehandler import YFHandler
 from filehandler import FileHandler
@@ -10,59 +11,53 @@ from eventhandler import ThreadManager
 with open('config/dataframe_schemas.json', 'r') as f:
     schemas = json.load(f)
 
-def analyze_stock(ticker: list, dic_files: dict, dic_assistants: dict):
-	
-	client = OpenAI()
+def stock_data_setup(client: OpenAI, ticker: list, type: Literal['price', 'cash', 'income'], dic_files: dict):
 
 	FILE_PATH = 'openai_upload_files/'
 	OPENAI_DIC_FILE_NAME = 'openai_files.json'
 
 	yf_handler = YFHandler(stock_list=ticker, schemas=schemas)
 
-	df_stocks = yf_handler.import_stocks()
-	df_cashflow = yf_handler.import_cashflow()
-	df_income_stmt = yf_handler.import_income_stmt()
+	if type == 'price':
+		df = yf_handler.import_stocks()
+		stock_data_file_name = 'df_stocks.csv'
+		
+	elif type == 'cash':
+		df = yf_handler.import_cashflow()
+		stock_data_file_name = 'df_stocks.csv'
 
+	elif type == 'income':
+		df = yf_handler.import_income_stmt()
+		stock_data_file_name = 'df_stocks.csv'
+
+	else:
+		raise ValueError('Stock data type is not properly defined.')
+	
 	# Write to CSV
 	# Technically this will be done by the FileHandler but just to be safe
-	df_stocks.to_csv('openai_upload_files/df_stocks.csv', index=False)
-	df_cashflow.to_csv('openai_upload_files/df_cashflow.csv', index=False)
-	df_income_stmt.to_csv('openai_upload_files/df_income_stmt.csv', index=False)
+	df.to_csv(f'openai_upload_files/{stock_data_file_name}', index=False)
 
-	file_stocks = FileHandler(
-		df=df_stocks,
+	file_stock_data = FileHandler(
+		df=df,
 		dic_file=dic_files,
-		file_name='df_stocks.csv',
+		file_name=stock_data_file_name,
 		dic_file_name=OPENAI_DIC_FILE_NAME,
 		file_path=FILE_PATH,
 		dic_file_path=FILE_PATH,
 		client=client
 	)
+	
+	file_stock_data.update_openai_file(dic_file=dic_files)
+		
+	return file_stock_data
 
-	file_cashflow = FileHandler(
-		df=df_cashflow,
-		dic_file=dic_files,
-		file_name='df_cashflow.csv',
-		dic_file_name=OPENAI_DIC_FILE_NAME,
-		file_path=FILE_PATH,
-		dic_file_path=FILE_PATH,
-		client=client
-	)
+def analyze_stock(ticker: list, dic_files: dict, dic_assistants: dict):
+	
+	client = OpenAI()
 
-	file_income_stmt = FileHandler(
-		df=df_income_stmt,
-		dic_file=dic_files,
-		file_name='df_income_stmt.csv',
-		dic_file_name=OPENAI_DIC_FILE_NAME,
-		file_path=FILE_PATH,
-		dic_file_path=FILE_PATH,
-		client=client
-	)
-
-	# Update files on OpenAI
-	file_stocks.update_openai_file(dic_file=dic_files)
-	file_cashflow.update_openai_file(dic_file=dic_files)
-	file_income_stmt.update_openai_file(dic_file=dic_files)
+	file_stocks = stock_data_setup(client=client, ticker=ticker, type='price', dic_files=dic_files)
+	file_cashflow = stock_data_setup(client=client, ticker=ticker, type='cash', dic_files=dic_files)
+	file_income_stmt = stock_data_setup(client=client, ticker=ticker, type='income', dic_files=dic_files)
 
 	# Have to manually update the tool_resources because the file_id can change
 	dic_assistants['fin_analyst']['tool_resources'] = {
