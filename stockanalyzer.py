@@ -24,11 +24,11 @@ def stock_data_setup(client: OpenAI, ticker: list, type: Literal['price', 'cash'
 		
 	elif type == 'cash':
 		df = yf_handler.import_cashflow()
-		stock_data_file_name = 'df_stocks.csv'
+		stock_data_file_name = 'df_cashflow.csv'
 
 	elif type == 'income':
 		df = yf_handler.import_income_stmt()
-		stock_data_file_name = 'df_stocks.csv'
+		stock_data_file_name = 'df_income_stmt.csv'
 
 	else:
 		raise ValueError('Stock data type is not properly defined.')
