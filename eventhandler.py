@@ -1,5 +1,6 @@
 from typing_extensions import override
 from openai import AssistantEventHandler, OpenAI
+from openai.types.beta.threads.message import Message
 from agenthandler import AgentHandler
 import time
  
@@ -101,14 +102,14 @@ class ThreadManager():
 		self.messages += [dic_message]
 		self.last_message = message_text
 
-	def _combine_messages(message, messages_combined):
+	def _combine_messages(self, message: Message, messages_combined: list):
 		messages_combined_string = '\n'.join(messages_combined)
 
 		dic_message = {
 			'message_id': message.id,
 			'assistant_id': message.assistant_id, 
 			'created_at': message.created_at,
-			'file_ids': message.file_ids,
+			'file_ids': message.attachments,
 			'role': message.role, 
 			'run_id': message.run_id,
 			'message_text': messages_combined_string
@@ -139,7 +140,7 @@ class ThreadManager():
 		# Need to combine them together to make them one single string
 		for message in messages_data:
 			
-			print(f'{message.id}, {message.assistant_id}')
+			# print(f'{message.id}, {message.assistant_id}')
 
 			# First check if message already exists in dic_thread
 			if message.id in existing_message_id:
@@ -151,7 +152,7 @@ class ThreadManager():
 				
 				# If there is at least one new message, then proceed normally
 				else:
-					dic_message = self._combine_messages(previous_message, messages_combined)
+					dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
 					self.messages += [dic_message]
 					self.last_message = dic_message['message_text']
@@ -194,7 +195,7 @@ class ThreadManager():
 					# If there is at least one new message, then proceed normally
 					else:
 						# We use previous message because the current loop is the new message
-						dic_message = self._combine_messages(previous_message, messages_combined)
+						dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
 						# Add message by the previous entity to the list first
 						self.messages += [dic_message]
@@ -226,7 +227,7 @@ class ThreadManager():
 			# Set message as previous_message for the next loop
 			previous_message = message
 
-		dic_message = self._combine_messages(previous_message, messages_combined)
+		dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
 		self.messages += [dic_message]
 		self.last_message = dic_message['message_text']
