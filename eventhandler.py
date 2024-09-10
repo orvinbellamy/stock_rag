@@ -140,7 +140,7 @@ class ThreadManager():
 		# Need to combine them together to make them one single string
 		for message in messages_data:
 			
-			# print(f'{message.id}, {message.assistant_id}')
+			print(f'message_id: {message.id}, assistant_id: {message.assistant_id}')
 
 			# First check if message already exists in dic_thread
 			if message.id in existing_message_id:
@@ -152,9 +152,11 @@ class ThreadManager():
 				
 				# If there is at least one new message, then proceed normally
 				else:
+					print('message.id in existing_message_id, ending function')
 					dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
-					self.messages += [dic_message]
+					print(dic_message)
+					self.messages.append(dic_message)
 					self.last_message = dic_message['message_text']
 					return
 			
@@ -163,11 +165,9 @@ class ThreadManager():
 
 				# if asst_id is blank that means it's the first loop
 				if asst_id == '':
+					print('asst_id = blank')
 					asst_id = message.assistant_id
 
-				# Message is still by the same entity, keep collecting message
-				elif message.assistant_id == asst_id:
-					
 					for content in message.content:
 			
 						if content.type == 'text':
@@ -183,11 +183,36 @@ class ThreadManager():
 						else:
 							message_text = 'Unidentified content type'
 
-						messages_combined += [message_text]
+						print(f'new_message: {message_text}')
+						messages_combined.append(message_text)
+
+				# Message is still by the same entity, keep collecting message
+				elif message.assistant_id == asst_id:
+					
+					print('message.assistant_id == asst_id, proceed normally to collect message')
+					for content in message.content:
+			
+						if content.type == 'text':
+							message_text = content.text.value
+
+						elif content.type == 'image_file':
+							file_id = content.image_file.file_id
+							file = self._client.files.content(file_id)
+							file.write_to_file(f'images/{file_id}.png')
+							message_text = f'Image generated: {file_id}'
+							print(f'Image generated: {file_id}')
+						
+						else:
+							message_text = 'Unidentified content type'
+
+						print(f'new_message: {message_text}')
+						messages_combined.append(message_text)
+
 				# Message is by another entity, add the combined message of the last entity
 				# and start a new round of messages
 				else: # message.assistant_id != asst_id
 					
+					print('message.assistant_id != asst_id, record previous message first')
 					# If there is no new message, return
 					if messages_combined == []:
 						print('No new message unrecorded.')
@@ -196,9 +221,9 @@ class ThreadManager():
 					else:
 						# We use previous message because the current loop is the new message
 						dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
-
+						print(dic_message)
 						# Add message by the previous entity to the list first
-						self.messages += [dic_message]
+						self.messages.append(dic_message)
 
 						# Reset messages_combined to empty list to prepare for the next entity's messages
 						messages_combined == []
@@ -222,14 +247,15 @@ class ThreadManager():
 							else:
 								message_text = 'Unidentified content type'
 
-							messages_combined += [message_text]
+							print(f'new_message: {message_text}')
+							messages_combined.append(message_text)
 			
 			# Set message as previous_message for the next loop
 			previous_message = message
 
 		dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
-		self.messages += [dic_message]
+		self.messages.append(dic_message)
 		self.last_message = dic_message['message_text']
 	
 	def run_thread(self, assistant: AgentHandler, prompt:str = None, attachments:list = []):
