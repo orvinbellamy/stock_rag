@@ -129,6 +129,7 @@ class ThreadManager():
 		messages_data = messages.data
 
 		messages_combined = []
+		messages_append_placeholder = []
 
 		# Set assistant_id
 		asst_id = '' 
@@ -156,7 +157,9 @@ class ThreadManager():
 					dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
 					print(dic_message)
-					self.messages.append(dic_message)
+					messages_append_placeholder.append(dic_message)
+					messages_append_placeholder = messages_append_placeholder[::-1] # Reverse the order
+					self.messages += messages_append_placeholder
 					self.last_message = dic_message['message_text']
 					return
 			
@@ -219,14 +222,16 @@ class ThreadManager():
 					
 					# If there is at least one new message, then proceed normally
 					else:
+						print(messages_combined)
 						# We use previous message because the current loop is the new message
 						dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 						print(dic_message)
 						# Add message by the previous entity to the list first
-						self.messages.append(dic_message)
+						messages_append_placeholder.append(dic_message)
 
 						# Reset messages_combined to empty list to prepare for the next entity's messages
-						messages_combined == []
+						messages_combined = []
+						print(messages_combined)
 
 						# Update asst_id to the new entity (note user role will have None assistant_id)
 						asst_id = message.assistant_id
@@ -249,13 +254,16 @@ class ThreadManager():
 
 							print(f'new_message: {message_text}')
 							messages_combined.append(message_text)
+							print(messages_combined)
 			
 			# Set message as previous_message for the next loop
 			previous_message = message
 
 		dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
-		self.messages.append(dic_message)
+		messages_append_placeholder.append(dic_message)
+		messages_append_placeholder = messages_append_placeholder[::-1] # Reverse the order
+		self.messages += messages_append_placeholder
 		self.last_message = dic_message['message_text']
 	
 	def run_thread(self, assistant: AgentHandler, prompt:str = None, attachments:list = []):
