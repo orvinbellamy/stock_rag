@@ -3,6 +3,7 @@ from openai import AssistantEventHandler, OpenAI
 from openai.types.beta.threads.message import Message
 from agenthandler import AgentHandler
 import time
+import pandas as pd
  
 # First, we create a EventHandler class to define
 # how we want to handle the events in the response stream.
@@ -62,6 +63,17 @@ class ThreadManager():
 		self.thread_id = self.thread.id
 		self.messages = []
 
+		df_schema = {
+			'message_id': 'str',
+			'assistant_id': 'str',
+			'created_at': 'int',
+			'file_ids': 'str',
+			'role': 'str',
+			'run_id': 'str',
+			'message_text': 'str'
+		}
+		self.df_messages = pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in df_schema.items()})
+
 		# Get the first message stored
 		message = client.beta.threads.messages.list(thread_id=self.thread_id)
 		message_data = message.data[0]
@@ -81,7 +93,7 @@ class ThreadManager():
 			elif content.type == 'image_file':
 				file_id = content.image_file.file_id
 				file = self._client.files.content(file_id)
-				file.write_to_file(f'images/{file_id}.png')
+				# file.write_to_file(f'images/{file_id}.png')
 				message_text = f'Image generated: {file_id}'
 				print(f'Image generated: {file_id}')
 			
@@ -98,8 +110,11 @@ class ThreadManager():
 			'run_id': run_id,
 			'message_text': message_text
 			}
-		
 		self.messages += [dic_message]
+		
+		df_append = pd.DataFrame([dic_message])
+		self.df_messages =  pd.concat([self.df_messages, df_append], ignore_index=True)
+		
 		self.last_message = message_text
 
 	def _combine_messages(self, message: Message, messages_combined: list):
@@ -136,6 +151,7 @@ class ThreadManager():
 
 		# Get all existing message_id
 		existing_message_id = [dic['message_id'] for dic in self.messages]
+		all_message_id = [message.id for message in messages_data]
 
 		# For now this records multiple messages from assistant separately
 		# Need to combine them together to make them one single string
@@ -143,8 +159,12 @@ class ThreadManager():
 			
 			print(f'message_id: {message.id}, assistant_id: {message.assistant_id}')
 
+			# We're skipping any messages that have attachments for now
+			if message.attachments != []:
+				continue
+			
 			# First check if message already exists in dic_thread
-			if message.id in existing_message_id:
+			elif message.id in existing_message_id:
 				
 				# If there is no new message, return
 				if messages_combined == []:
@@ -154,12 +174,17 @@ class ThreadManager():
 				# If there is at least one new message, then proceed normally
 				else:
 					print('message.id in existing_message_id, ending function')
+
+					messages_combined = messages_combined[::-1]
 					dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
 					print(dic_message)
 					messages_append_placeholder.append(dic_message)
-					messages_append_placeholder = messages_append_placeholder[::-1] # Reverse the order
 					self.messages += messages_append_placeholder
+
+					df_append = pd.DataFrame([dic_message])
+					self.df_messages =  pd.concat([self.df_messages, df_append], ignore_index=True)
+
 					self.last_message = dic_message['message_text']
 					return
 			
@@ -179,7 +204,7 @@ class ThreadManager():
 						elif content.type == 'image_file':
 							file_id = content.image_file.file_id
 							file = self._client.files.content(file_id)
-							file.write_to_file(f'images/{file_id}.png')
+							# file.write_to_file(f'images/{file_id}.png')
 							message_text = f'Image generated: {file_id}'
 							print(f'Image generated: {file_id}')
 						
@@ -201,7 +226,7 @@ class ThreadManager():
 						elif content.type == 'image_file':
 							file_id = content.image_file.file_id
 							file = self._client.files.content(file_id)
-							file.write_to_file(f'images/{file_id}.png')
+							# file.write_to_file(f'images/{file_id}.png')
 							message_text = f'Image generated: {file_id}'
 							print(f'Image generated: {file_id}')
 						
@@ -222,6 +247,9 @@ class ThreadManager():
 					
 					# If there is at least one new message, then proceed normally
 					else:
+						
+						# Reverse the order so that first message comes first
+						messages_combined = messages_combined[::-1]
 						print(messages_combined)
 						# We use previous message because the current loop is the new message
 						dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
@@ -245,7 +273,7 @@ class ThreadManager():
 							elif content.type == 'image_file':
 								file_id = content.image_file.file_id
 								file = self._client.files.content(file_id)
-								file.write_to_file(f'images/{file_id}.png')
+								# file.write_to_file(f'images/{file_id}.png')
 								message_text = f'Image generated: {file_id}'
 								print(f'Image generated: {file_id}')
 							
@@ -259,11 +287,15 @@ class ThreadManager():
 			# Set message as previous_message for the next loop
 			previous_message = message
 
+		messages_combined = messages_combined[::-1]
 		dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
 
 		messages_append_placeholder.append(dic_message)
-		messages_append_placeholder = messages_append_placeholder[::-1] # Reverse the order
 		self.messages += messages_append_placeholder
+
+		df_append = pd.DataFrame([dic_message])
+		self.df_messages =  pd.concat([self.df_messages, df_append], ignore_index=True)
+
 		self.last_message = dic_message['message_text']
 	
 	def run_thread(self, assistant: AgentHandler, prompt:str = None, attachments:list = []):
@@ -310,6 +342,9 @@ class ThreadManager():
 				additional_messages=message,
 			) as stream:
 				stream.until_done()
+
+		# Buffer maybe we need to wait after thread run is done for data to update
+		time.sleep(1)
 
 		self.get_last_message()
 	
