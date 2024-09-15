@@ -11,8 +11,7 @@ file management:
 - Get the file with the last name on list (all files), and then group by max createdate
 - store shared files on Supabase
 - write_to_file not working  FileNotFoundError: [Errno 2] No such file or directory: 'images/file-dMqccidbrEle3LictfoNcw31.png'
-- Changing approach to recording messages. Now we only look for IDs which don't exist
-- Or better yet take all createdate and only look for new messages with createdate greater than the existing one
+- get_last_message is working fine now, but it's not capturing user messages for some reason
 
 1. Local
 2. file config
