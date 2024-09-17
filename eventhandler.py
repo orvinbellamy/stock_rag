@@ -212,6 +212,11 @@ class ThreadManager():
 						# Add message by the previous entity to the list first
 						messages_append_placeholder.append(dic_message)
 
+						self.messages += messages_append_placeholder
+
+						df_append = pd.DataFrame([dic_message])
+						self.df_messages =  pd.concat([self.df_messages, df_append], ignore_index=True)
+
 						# Reset messages_combined to empty list to prepare for the next entity's messages
 						messages_combined = []
 						# print(messages_combined)
