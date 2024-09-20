@@ -7,6 +7,10 @@ TODO:
 	- _combine_messages is fixed but it's still not recording the 2nd user prompt
 
 
+file management:
+- Get the file with the last name on list (all files), and then group by max createdate
+- store shared files on Supabase
+
 1. Local
 2. file config
 3. File in OpenAI
