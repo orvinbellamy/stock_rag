@@ -1,4 +1,5 @@
 .env
+venv/
 openai_files.json
 openai_upload_files/
 config/assistants.json
