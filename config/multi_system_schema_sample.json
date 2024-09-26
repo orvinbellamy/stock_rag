@@ -1,0 +1,32 @@
+{
+	"start_branch": {
+		"asst": {
+			"main_asst": "asst_id",
+			"sub_asst_1": "asst_id",
+			"sub_asst_2": "asst_id",
+			"sub_asst_3": "asst_id"
+		},
+		"thread": "thread_id",
+		"sub_branches": {
+			"sub_branch_1": {
+				"asst": {
+					"main_asst": "asst_id",
+					"sub_asst_1": "asst_id",
+					"sub_asst_2": "asst_id",
+					"sub_asst_3": "asst_id"
+				},
+				"thread": "thread_id"
+			},
+
+			"sub_branch_2": {
+				"asst": {
+					"main_asst": "asst_id",
+					"sub_asst_1": "asst_id",
+					"sub_asst_2": "asst_id",
+					"sub_asst_3": "asst_id"
+				},
+				"thread": "thread_id"
+			}
+		}
+	}
+}
