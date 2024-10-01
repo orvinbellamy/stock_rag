@@ -8,4 +8,4 @@ config/portfolio.csv
 _pycache_/
 __pycache__
 gitignore_files/
-chromdriver/
+chromedriver/
