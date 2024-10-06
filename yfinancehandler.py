@@ -1,6 +1,10 @@
+import time
 import pandas as pd
 import yfinance as yf
 from typing import Literal
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
 
 class YFHandler():
 	def __init__(self, stock_list: list, schemas: dict):
@@ -125,3 +129,64 @@ class YFHandler():
 			df = pd.concat([df, df_plc], ignore_index=True)
 
 		return df
+	
+	def _get_news_links(self, dic_urls:dict, max_links:int=100, scroll_amount:int=1000, scroll_limit:int=10, pause_time:int=5):
+
+		# Set up driver, this will open a Google Chrome
+		# We can automatically close this later
+		driver = webdriver.Chrome()
+
+		dic_links = {}
+
+		for stock in dic_urls:
+
+			driver.get(dic_urls[stock])
+
+			news_links = []
+
+			# Go to the bottom of the screen as a first action
+			ActionChains(driver).scroll_by_amount(0, 10000).perform()
+
+			for _ in range(scroll_limit):
+
+				if len(news_links) >= max_links:
+					
+					return news_links[0:100]
+				else:
+					# print(f'loop:{_}')
+					# Scroll down in smaller steps
+					ActionChains(driver).scroll_by_amount(0, scroll_amount).perform()
+					
+					# Wait for new content to load
+					time.sleep(pause_time)
+
+					# Parse the page source with BeautifulSoup
+					soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+					# Find all news links on the page
+					articles = soup.find_all('a', href=True)  # Update class name as needed
+					for article in articles:
+						link = article['href']
+						if "/news/" in link:
+							link = f"https://finance.yahoo.com{link}"  # Complete the URL
+						if link not in news_links:  # Avoid duplicates
+							news_links.append(link)
+
+			dic_links[stock] = news_links[0:100]
+
+		# Close driver, we don't need it anymore
+		driver.quit()
+
+		return dic_links
+
+	def get_stock_news(self):
+		
+		dic_urls = {}
+
+		for stock in self.stock_list:
+			
+			dic_urls[stock] = f'https://finance.yahoo.com/quote/{stock}/news/'
+
+		dic_links = self._get_news_links(dic_urls=dic_urls)
+
+		return dic_links
