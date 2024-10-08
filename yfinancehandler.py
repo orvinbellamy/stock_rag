@@ -243,7 +243,7 @@ class YFHandler():
 
 		return dic_html
 
-	def get_stock_news(self, max_links):
+	def get_stock_news(self, max_news:int=10):
 		
 		dic_urls = {}
 		driver = webdriver.Chrome()
@@ -252,7 +252,7 @@ class YFHandler():
 			
 			dic_urls[stock] = f'https://finance.yahoo.com/quote/{stock}/news/'
 
-		dic_links = self._get_news_links(dic_urls=dic_urls, driver=driver, max_links=max_links)
+		dic_links = self._get_news_links(dic_urls=dic_urls, driver=driver, max_links=max_news)
 
 		dic_articles = self._get_articles(dic_links=dic_links, driver=driver)
 
