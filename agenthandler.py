@@ -4,7 +4,7 @@ from openai import OpenAI
 import json
 
 class AgentHandler():
-	def __init__(self, client: OpenAI, new: bool, dic_file: dict, dic_file_name: str, assistant_name: str, instructions: str = None, model: str = None, tools: list = [], tool_resources: dict = {}, dic_file_path: str = ''):
+	def __init__(self, client: OpenAI, new: bool, dic_file: dict, assistant_name: str, instructions: str = None, model: str = None, tools: list = [], tool_resources: dict = {}, dic_file_name:str='assistants.json', dic_file_path: str = 'config/'):
 		
 		self._client = client
 		self.assistant_name = assistant_name

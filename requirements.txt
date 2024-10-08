@@ -3,3 +3,6 @@ pandas
 openai
 python-dotenv
 logging
+fs
+selenium
+beautifulsoup4

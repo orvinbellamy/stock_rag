@@ -11,9 +11,8 @@ from eventhandler import ThreadManager
 with open('config/dataframe_schemas.json', 'r') as f:
     schemas = json.load(f)
 
-def stock_data_setup(client: OpenAI, ticker: list, type: Literal['price', 'cash', 'income'], dic_files: dict):
+def stock_data_setup(client: OpenAI, ticker: list, type: Literal['price', 'cash', 'income', 'news'], dic_files:dict=None):
 
-	FILE_PATH = 'openai_upload_files/'
 	OPENAI_DIC_FILE_NAME = 'openai_files.json'
 
 	yf_handler = YFHandler(stock_list=ticker, schemas=schemas)
@@ -30,8 +29,16 @@ def stock_data_setup(client: OpenAI, ticker: list, type: Literal['price', 'cash'
 		df = yf_handler.import_income_stmt()
 		stock_data_file_name = 'df_income_stmt.csv'
 
+	elif type == 'news':
+		_, dic_articles = yf_handler.get_stock_news(max_news=10)
+
+		return dic_articles
+
 	else:
 		raise ValueError('Stock data type is not properly defined.')
+	
+	if dic_files is None:
+		raise ValueError("If type is not 'news', then you need to define dic_files parameter.")
 	
 	# Write to CSV
 	# Technically this will be done by the FileHandler but just to be safe
@@ -42,8 +49,6 @@ def stock_data_setup(client: OpenAI, ticker: list, type: Literal['price', 'cash'
 		dic_file=dic_files,
 		file_name=stock_data_file_name,
 		dic_file_name=OPENAI_DIC_FILE_NAME,
-		file_path=FILE_PATH,
-		dic_file_path=FILE_PATH,
 		client=client
 	)
 	

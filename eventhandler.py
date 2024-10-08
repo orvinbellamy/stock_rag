@@ -12,11 +12,11 @@ class EventHandler(AssistantEventHandler):
 	@override
 	def on_text_created(self, text) -> None:
 		print(f"\nassistant > ", end="", flush=True)
-      
+	  
 	@override
 	def on_text_delta(self, delta, snapshot):
 		print(delta.value, end="", flush=True)
-      
+	  
 	def on_tool_call_created(self, tool_call):
 		print(f"\nassistant > {tool_call.type}\n", flush=True)
   
@@ -471,41 +471,41 @@ class ThreadManager():
 ## Manually checking run status of a thread
 ## Primivite, not needed
 def check_run_status(client, thread_id: str, run_id: str, n_tries: int, wait_time):
-    
-    ## Wait until status is completed
-    for i in range(0, n_tries):
+	
+	## Wait until status is completed
+	for i in range(0, n_tries):
 
-        # Retrieve the latest run
-        run_retrieve = client.beta.threads.runs.retrieve(
-            thread_id=thread_id,
-            run_id=run_id
-        )
+		# Retrieve the latest run
+		run_retrieve = client.beta.threads.runs.retrieve(
+			thread_id=thread_id,
+			run_id=run_id
+		)
 
-        # Get the run status
-        run_status = run_retrieve.status
+		# Get the run status
+		run_status = run_retrieve.status
 
-        # Check run status
-        if run_status == 'completed':
-            print('Run is completed')
-            return f'Run is completed (run_id: {run_id}, thread_id {thread_id})'
-        elif run_status == 'in_progress':
-            print('Run is in progress')
-            pass
-        elif run_status == 'queued':
-            print('Run is queued')
-            pass
-        elif run_status == 'cancelling':
-            print('Run is cancelling')
-            pass
-        elif run_status == 'cancelled':
-            raise ValueError(f'Error: run is cancelled (run_id: {run_id}, thread_id {thread_id})')
-        elif run_status == 'failed':
-            raise ValueError(f'Error: run has failed (run_id: {run_id}, thread_id {thread_id})')
-        elif run_status == 'expired':
-            raise ValueError(f'Error: run has expired (run_id: {run_id}, thread_id {thread_id})')
-        elif run_status == 'requires_action':
-            print('Action is required')
-            return f'Action required (run_id: {run_id}, thread_id {thread_id})'
+		# Check run status
+		if run_status == 'completed':
+			print('Run is completed')
+			return f'Run is completed (run_id: {run_id}, thread_id {thread_id})'
+		elif run_status == 'in_progress':
+			print('Run is in progress')
+			pass
+		elif run_status == 'queued':
+			print('Run is queued')
+			pass
+		elif run_status == 'cancelling':
+			print('Run is cancelling')
+			pass
+		elif run_status == 'cancelled':
+			raise ValueError(f'Error: run is cancelled (run_id: {run_id}, thread_id {thread_id})')
+		elif run_status == 'failed':
+			raise ValueError(f'Error: run has failed (run_id: {run_id}, thread_id {thread_id})')
+		elif run_status == 'expired':
+			raise ValueError(f'Error: run has expired (run_id: {run_id}, thread_id {thread_id})')
+		elif run_status == 'requires_action':
+			print('Action is required')
+			return f'Action required (run_id: {run_id}, thread_id {thread_id})'
 
-        # Sleep to give time for the run to process
-        time.sleep(wait_time)
+		# Sleep to give time for the run to process
+		time.sleep(wait_time)

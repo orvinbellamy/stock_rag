@@ -6,3 +6,6 @@ config/assistants.json
 config/config.json
 config/portfolio.csv
 _pycache_/
+__pycache__
+gitignore_files/
+chromedriver/
