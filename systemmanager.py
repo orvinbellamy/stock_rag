@@ -3,23 +3,44 @@
 from agenthandler import AgentHandler
 from eventhandler import ThreadManager
 
-class Staff:
-    def __init__(self, name: str, title: str, salary: float, subordinates: list[str]):
-        self.name = name
-        self.title = title
-        self.salary = salary
-        self.subordinates = subordinates
+class SystemNode:
 
-    def add_subordinate(self, subordinate: str):
-        self.subordinates.append(subordinate)
+	# As a start each Node will have 2 or 3 agents (models)
+	# 1 agent will always be the reviewer
+	# The other agent(s) will do the actual work
 
-    def remove_subordinate(self, subordinate: str):
-        self.subordinates.remove(subordinate)
+	def __init__(self, name:str, thread:ThreadManager, agents:list[AgentHandler], child_nodes:list):
+		self.name = name
+		self.thread = thread
+		self.agents = agents
+		self.child_nodes = child_nodes
+		self.input_msg = ''
+		self.output_msg = ''
+
+		# TODO: Add a code to verify that there is at least one reviewer agent
+		# TODO: Add an input prompt and output prompt, each node needs to have an input and output
+
+	def add_child_nodes(self, node):
+		
+		if isinstance(node, SystemNode):
+			self.child_nodes.append(node)
+		else:
+			raise ValueError("Child node must be a SystemNode object.")
+
+	def remove_child_nodes(self, node):
+		
+		if isinstance(node, SystemNode):
+			self.child_nodes.remove(node)
+		else:
+			raise ValueError("Child node must be a SystemNode object.")
 
 class MultiSystemManager():
 
-	def __init__(self, staff_list: list[Staff]):
-		self.staff_list = staff_list
+	def __init__(self, head_node:SystemNode):
+		self.head_node = head_node
 
-	def fire(self, staff: Staff):
-		self.staff_list.remove(staff)
+	def input_message(self, prompt:str):
+
+		self.head_node.thread.run_thread(
+			assistant=self.head_node.agents['reviewer'],
+			prompt=prompt)

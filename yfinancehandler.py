@@ -14,13 +14,13 @@ class YFHandler():
 		self.stock_list = stock_list
 		self.schemas = schemas
 	
-	def import_stocks(self):
+	def import_stocks(self, period:Literal['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max']='5y'):
 
 		df = pd.DataFrame(columns=dict(self.schemas['stocks']))
 
 		for stock in self.stock_list:
 
-			df_plc = self.stocks.tickers[stock].history(period='max').reset_index()
+			df_plc = self.stocks.tickers[stock].history(period=period).reset_index()
 			df_plc['Ticker'] = stock
 
 			df = pd.concat([df, df_plc], ignore_index=True)

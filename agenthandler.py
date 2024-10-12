@@ -2,12 +2,27 @@ import pandas as pd
 import openai
 from openai import OpenAI
 import json
+from typing import Literal
 
 class AgentHandler():
-	def __init__(self, client: OpenAI, new: bool, dic_file: dict, assistant_name: str, instructions: str = None, model: str = None, tools: list = [], tool_resources: dict = {}, dic_file_name:str='assistants.json', dic_file_path: str = 'config/'):
+	def __init__(
+			self,
+			client:OpenAI, 
+			new:bool,
+			dic_file:dict,
+			assistant_name:str,
+			type:Literal['reviewer', 'worker'],
+			instructions:str = None,
+			model:str = None,
+			tools:list = [],
+			tool_resources: dict = {},
+			dic_file_name:str='assistants.json',
+			dic_file_path: str = 'config/'
+			):
 		
 		self._client = client
 		self.assistant_name = assistant_name
+		self.type = type
 		self._dic_file_name = dic_file_name
 		self._dic_file_path = dic_file_path
 		
