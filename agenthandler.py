@@ -53,7 +53,7 @@ class AgentHandler():
 			self._dic_agent = dic_file
 
 			with open(f"{self._dic_file_path}{self._dic_file_name}", 'w') as json_file:
-				json.dump(self._dic_agent, json_file)
+				json.dump(self._dic_agent, json_file, indent='\t')
 				print(f"{self._dic_file_path}{self._dic_file_name} file has been updated")
 
 		# If using an existing assistant/agent
@@ -107,5 +107,5 @@ class AgentHandler():
 		print(f"{assistant_name} properties in main dictionary has been updated.")
 
 		with open(f"{self._dic_file_path}{self._dic_file_name}", 'w') as json_file:
-			json.dump(self._dic_agent, json_file)
+			json.dump(self._dic_agent, json_file, indent='\t')
 			print(f"{self._dic_file_path}{self._dic_file_name} file has been updated")
