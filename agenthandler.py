@@ -11,7 +11,6 @@ class AgentHandler():
 			new:bool,
 			dic_file:dict,
 			assistant_name:str,
-			# type:Literal['reviewer', 'worker'],
 			instructions:str = None,
 			model:str = None,
 			tools:list = [],
@@ -22,7 +21,6 @@ class AgentHandler():
 		
 		self._client = client
 		self.assistant_name = assistant_name
-		# self.type = type
 		self._dic_file_name = dic_file_name
 		self._dic_file_path = dic_file_path
 		

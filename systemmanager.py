@@ -10,9 +10,10 @@ class SystemNode:
 	# 1 agent will always be the reviewer
 	# The other agent(s) will do the actual work
 
-	def __init__(self, client:OpenAI, name:str, agents:list[AgentHandler], child_nodes:list=None):
+	def __init__(self, client:OpenAI, name:str, main_agent:AgentHandler, sub_agents:list[AgentHandler], child_nodes:list=None):
 		self.name = name
-		self.agents = agents
+		self.main_agent = main_agent
+		self.sub_agents = sub_agents
 		self.child_nodes = child_nodes
 		self.input_msg = ''
 		self.output_msg = ''
@@ -36,6 +37,39 @@ class SystemNode:
 			self.child_nodes.remove(node)
 		else:
 			raise ValueError("Child node must be a SystemNode object.")
+		
+	def delete_thread(self):
+		self.thread.delete_thread()
+
+	def _check_for_instruction(self):
+
+		if "Start work:" in self.thread.last_message:
+			return True
+		else:
+			return False
+		
+	def _give_instruction_to_sub_agents(self):
+
+		prompt = self.thread.last_message
+
+		for agent in self.sub_agents:
+			self.thread.run_thread(
+				assistant=agent,
+				prompt=prompt
+			)
+
+		### TODO: Need to figure out how to parse the responses and for the manager to review each response
+		### TODO: Need to figure out how to trigger a run input in child nodes from an output in parent node
+	
+	def input_prompt(self, prompt:str):
+		self.thread.run_thread(
+			assistant=self.main_agent,
+			prompt=prompt
+		)
+
+		if self._check_for_instruction():
+
+			self._give_instruction_to_sub_agents()
 
 class MultiSystemManager():
 
