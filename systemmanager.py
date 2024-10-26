@@ -1,5 +1,6 @@
 ### For managing multiple agents together ###
 
+from openai import OpenAI
 from agenthandler import AgentHandler
 from eventhandler import ThreadManager
 
@@ -9,13 +10,15 @@ class SystemNode:
 	# 1 agent will always be the reviewer
 	# The other agent(s) will do the actual work
 
-	def __init__(self, name:str, thread:ThreadManager, agents:list[AgentHandler], child_nodes:list):
+	def __init__(self, client:OpenAI, name:str, agents:list[AgentHandler], child_nodes:list=None):
 		self.name = name
-		self.thread = thread
 		self.agents = agents
 		self.child_nodes = child_nodes
 		self.input_msg = ''
 		self.output_msg = ''
+
+		prompt_start = 'Ignore this sentence, this is only to begin the thread.'
+		self.thread = ThreadManager(client=client, prompt=prompt_start)
 
 		# TODO: Add a code to verify that there is at least one reviewer agent
 		# TODO: Add an input prompt and output prompt, each node needs to have an input and output
