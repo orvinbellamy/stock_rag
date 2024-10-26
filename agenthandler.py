@@ -16,13 +16,15 @@ class AgentHandler():
 			tools:list = [],
 			tool_resources: dict = {},
 			dic_file_name:str='assistants.json',
-			dic_file_path: str = 'config/'
+			dic_file_path:str='config/',
+			threads:list[str]=[]
 			):
 		
 		self._client = client
 		self.assistant_name = assistant_name
 		self._dic_file_name = dic_file_name
 		self._dic_file_path = dic_file_path
+		self.threads = threads
 		
 		# If creating a new assistant/agent
 		if new:

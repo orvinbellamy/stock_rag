@@ -31,7 +31,12 @@ class EventHandler(AssistantEventHandler):
 						print(f"\n{output.logs}", flush=True)
 
 class ThreadManager():
-	def __init__(self, client: OpenAI, prompt: str, attachments: list = []):
+	def __init__(
+			self, 
+			client: OpenAI, 
+			prompt: str, 
+			assistants:list[AgentHandler], # maybe this is better with **kwargs?
+			attachments:list=[]):
 		
 		if prompt is None and attachments is not None:
 			raise ValueError('Attachment is provided without prompt')
@@ -58,10 +63,16 @@ class ThreadManager():
 			}
 		]
 
+		self.messages = []
 		self._client = client
 		self.thread = self._client.beta.threads.create(messages=message)
 		self.thread_id = self.thread.id
-		self.messages = []
+		self.assistants = assistants
+		
+		# Assign the thread_id to the assistant object
+		# Now we can trace assistants and their threads between one another
+		for assistant in self.assistants:
+			assistant.threads.append(self.thread_id)
 
 		df_schema = {
 			'message_id': 'str',
@@ -244,177 +255,15 @@ class ThreadManager():
 			self.last_message = dic_message['message_text']
 		else:
 			print('No new message')
-
-	# def get_last_message(self):
-		
-	# 	#### Note assistant_id can be None
-
-	# 	print('get_last_message initiated')
-
-	# 	messages = self._client.beta.threads.messages.list(thread_id=self.thread_id)
-		
-	# 	# Get the list of messages in the thread
-	# 	messages_data = messages.data
-
-	# 	messages_combined = []
-	# 	messages_append_placeholder = []
-	# 	last_position = []
-
-	# 	# Set assistant_id
-	# 	asst_id = '' 
-
-	# 	# Get all existing message_id
-	# 	existing_message_id = [dic['message_id'] for dic in self.messages]
-	# 	all_message_id = [message.id for message in messages_data]
-
-	# 	# For now this records multiple messages from assistant separately
-	# 	# Need to combine them together to make them one single string
-	# 	for message in messages_data:
-			
-	# 		print(f'message_id: {message.id}, assistant_id: {message.assistant_id}')
-
-	# 		# We're skipping any messages that have attachments for now
-	# 		if message.attachments != []:
-	# 			continue
-			
-	# 		# First check if message already exists in dic_thread
-	# 		elif message.id in existing_message_id:
-				
-	# 			# If there is no new message, return
-	# 			if messages_combined == []:
-	# 				print('No new message unrecorded.')
-	# 				return
-				
-	# 			# If there is at least one new message, then proceed normally
-	# 			else:
-	# 				print('message.id in existing_message_id, ending function')
-
-	# 				messages_combined = messages_combined[::-1]
-	# 				dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
-
-	# 				print(dic_message)
-	# 				messages_append_placeholder.append(dic_message)
-	# 				self.messages += messages_append_placeholder
-
-	# 				df_append = pd.DataFrame([dic_message])
-	# 				self.df_messages =  pd.concat([self.df_messages, df_append], ignore_index=True)
-
-	# 				self.last_message = dic_message['message_text']
-	# 				return
-			
-	# 		# If message doesn't exist, proceed normally
-	# 		else:
-
-	# 			# if asst_id is blank that means it's the first loop
-	# 			if asst_id == '':
-	# 				print('asst_id = blank')
-	# 				asst_id = message.assistant_id
-
-	# 				for content in message.content:
-			
-	# 					if content.type == 'text':
-	# 						message_text = content.text.value
-
-	# 					elif content.type == 'image_file':
-	# 						file_id = content.image_file.file_id
-	# 						file = self._client.files.content(file_id)
-	# 						# file.write_to_file(f'images/{file_id}.png')
-	# 						message_text = f'Image generated: {file_id}'
-	# 						print(f'Image generated: {file_id}')
-						
-	# 					else:
-	# 						message_text = 'Unidentified content type'
-
-	# 					print(f'new_message: {message_text}')
-	# 					messages_combined.append(message_text)
-
-	# 			# Message is still by the same entity, keep collecting message
-	# 			elif message.assistant_id == asst_id:
-					
-	# 				print('message.assistant_id == asst_id, proceed normally to collect message')
-	# 				for content in message.content:
-			
-	# 					if content.type == 'text':
-	# 						message_text = content.text.value
-
-	# 					elif content.type == 'image_file':
-	# 						file_id = content.image_file.file_id
-	# 						file = self._client.files.content(file_id)
-	# 						# file.write_to_file(f'images/{file_id}.png')
-	# 						message_text = f'Image generated: {file_id}'
-	# 						print(f'Image generated: {file_id}')
-						
-	# 					else:
-	# 						message_text = 'Unidentified content type'
-
-	# 					print(f'new_message: {message_text}')
-	# 					messages_combined.append(message_text)
-
-	# 			# Message is by another entity, add the combined message of the last entity
-	# 			# and start a new round of messages
-	# 			else: # message.assistant_id != asst_id
-					
-	# 				print('message.assistant_id != asst_id, record previous message first')
-	# 				# If there is no new message, return
-	# 				if messages_combined == []:
-	# 					print('No new message unrecorded.')
-					
-	# 				# If there is at least one new message, then proceed normally
-	# 				else:
-						
-	# 					# Reverse the order so that first message comes first
-	# 					messages_combined = messages_combined[::-1]
-	# 					print(messages_combined)
-	# 					# We use previous message because the current loop is the new message
-	# 					dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
-	# 					print(dic_message)
-	# 					# Add message by the previous entity to the list first
-	# 					messages_append_placeholder.append(dic_message)
-
-	# 					# Reset messages_combined to empty list to prepare for the next entity's messages
-	# 					messages_combined = []
-	# 					print(messages_combined)
-
-	# 					# Update asst_id to the new entity (note user role will have None assistant_id)
-	# 					asst_id = message.assistant_id
-
-	# 					# Loop through the content
-	# 					for content in message.content:
-			
-	# 						if content.type == 'text':
-	# 							message_text = content.text.value
-
-	# 						elif content.type == 'image_file':
-	# 							file_id = content.image_file.file_id
-	# 							file = self._client.files.content(file_id)
-	# 							# file.write_to_file(f'images/{file_id}.png')
-	# 							message_text = f'Image generated: {file_id}'
-	# 							print(f'Image generated: {file_id}')
-							
-	# 						else:
-	# 							message_text = 'Unidentified content type'
-
-	# 						print(f'new_message: {message_text}')
-	# 						messages_combined.append(message_text)
-	# 						print(messages_combined)
-			
-	# 		# Set message as previous_message for the next loop
-	# 		previous_message = message
-
-	# 	messages_combined = messages_combined[::-1]
-	# 	dic_message = self._combine_messages(message=previous_message, messages_combined=messages_combined)
-
-	# 	messages_append_placeholder.append(dic_message)
-	# 	self.messages += messages_append_placeholder
-
-	# 	df_append = pd.DataFrame([dic_message])
-	# 	self.df_messages =  pd.concat([self.df_messages, df_append], ignore_index=True)
-
-	# 	self.last_message = dic_message['message_text']
 	
 	def run_thread(self, assistant: AgentHandler, prompt:str = None, attachments:list = []):
 		
-		if prompt is None and len(attachments) > 0:
+		# Check to see if assistant is already assigned to this thread
+		if assistant not in self.assistants:
+
+			raise ValueError('Assistant is not yet assigned to this ThreadManager object. Assign the assistant first via the .assistant attribute.')
+
+		elif prompt is None and len(attachments) > 0:
 			raise ValueError('Attachment is provided without prompt')
 		
 		elif prompt is None:

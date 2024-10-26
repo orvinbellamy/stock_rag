@@ -3,6 +3,7 @@ README
 TODO:
 - Need to figure out automation for the nodes, like a template of instructions
 	- i.e. command to have the manager to give insturction to the workers
+- Need to tie agent to thread. 
 
 
 file management:
