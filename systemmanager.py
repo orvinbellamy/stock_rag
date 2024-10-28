@@ -5,17 +5,60 @@ from agenthandler import AgentHandler
 from eventhandler import ThreadManager
 # import logging as log
 
+# Check to see if assistant is already assigned to this thread
+# We only allow running thread against assigned assistant
+# This is so that we can always trace assistant to agent and vice versa
+
+class ThreadAgentManager():
+	def __init__(self):
+		self._thread_to_agents={}
+		self._agent_to_threads={}
+
+	def link(self, thread:ThreadManager, agent:AgentHandler):
+		"""Creates a bidirectional link between a thread and an agent."""
+		self._thread_to_agents.setdefault(thread, set()).add(agent)
+		self._agent_to_threads.setdefault(agent, set()).add(thread)
+
+	def unlink(self, thread:ThreadManager, agent:AgentHandler):
+		"""Removes the bidirectional link between a thread and an agent."""
+		if agent in self._thread_to_agents.get(thread, set()):
+			self._thread_to_agents[thread].remove(agent)
+		if thread in self._agent_to_threads.get(agent, set()):
+			self._agent_to_threads[agent].remove(thread)
+	
+	def get_agents(self, thread:ThreadManager):
+		"""Returns a set of agents linked to a thread."""
+		return self._thread_to_agents.get(thread, set())
+
+	def get_threads(self, agent:AgentHandler):
+		"""Returns a set of threads linked to an agent."""
+		return self._agent_to_threads.get(agent, set())
+	
+	def is_linked(self, thread:ThreadManager, agent:AgentHandler):
+		"""Check if a specific agent and thread are linked."""
+		return (
+			agent in self._thread_to_agents.get(thread, set()) and
+			thread in self._agent_to_threads.get(agent, set())
+		)
+
 class SystemNode:
 
 	# As a start each Node will have 2 or 3 agents (models)
 	# 1 agent will always be the reviewer
 	# The other agent(s) will do the actual work
 
-	def __init__(self, client:OpenAI, name:str, main_agent:AgentHandler, sub_agents:list[AgentHandler], child_nodes:list=None):
+	# TODO: Do we actually need SystemNode? Can't we do this with ThreadManager?
+
+	def __init__(
+			self, 
+			client:OpenAI, 
+			name:str, 
+			main_agent:AgentHandler, 
+			sub_agents:list[AgentHandler]
+			):
 		self.name = name
 		self.main_agent = main_agent
 		self.sub_agents = sub_agents
-		self.child_nodes = child_nodes
 		self.input_msg = ''
 		self.output_msg = ''
 
@@ -23,20 +66,6 @@ class SystemNode:
 		self.thread = ThreadManager(client=client, prompt=prompt_start)
 
 		# TODO: Add an input prompt and output prompt, each node needs to have an input and output
-
-	def add_child_nodes(self, node):
-		
-		if isinstance(node, SystemNode):
-			self.child_nodes.append(node)
-		else:
-			raise ValueError("Child node must be a SystemNode object.")
-
-	def remove_child_nodes(self, node):
-		
-		if isinstance(node, SystemNode):
-			self.child_nodes.remove(node)
-		else:
-			raise ValueError("Child node must be a SystemNode object.")
 		
 	def delete_thread(self):
 		self.thread.delete_thread()
@@ -108,13 +137,75 @@ class SystemNode:
 
 		print('Input prompt: done')
 
-class MultiSystemManager():
+class MultiNodeManager():
 
-	def __init__(self, head_node:SystemNode):
-		self.head_node = head_node
+	def __init__(self):
+		self.schema = {}
 
-	def input_message(self, prompt:str):
+	def _find_main_node(self):
 
-		self.head_node.thread.run_thread(
-			assistant=self.head_node.agents['reviewer'],
-			prompt=prompt)
+		"""
+		Finds the main node in the hierarchy (the node with no parent).
+		"""
+
+		all_nodes = set(self.schema.keys())
+		child_nodes = {child for children in self.schema.values() for child in children}
+		
+		main_nodes = list(all_nodes - child_nodes)
+		
+		if len(main_nodes) != 1:
+			raise ValueError("There should be exactly one main node.")
+		
+		return main_nodes[0]
+
+	def add_node(self, node:SystemNode, **kwargs):
+
+		## TODO: need to make sure: 1. cannot add node that already exists, 2. node hierarchy cannot loop
+
+		# Check if either `parent_node` or `child_node` is provided, but not both
+		if 'parent_node' in kwargs and 'child_node' in kwargs:
+			raise ValueError("Please provide only one of 'parent_node' or 'child_node', not both.")
+		
+		elif 'parent_node' in kwargs:
+			if not isinstance(kwargs['parent_node'], SystemNode):
+				raise TypeError("The 'parent_node' parameter must be a SystemNode object.")
+			else:
+				self.schema.setdefault(kwargs['parent_node'], set()).add(node)
+
+		elif 'child_node' in kwargs:
+
+			if isinstance(kwargs['child_node'], SystemNode):
+				self.schema.setdefault(node, set()).add(kwargs['child_node'])
+
+			elif isinstance(kwargs['child_node'], list) and all(isinstance(item, SystemNode) for item in kwargs['child_node']):
+				
+				self.schema.setdefault(node, set())
+
+				self.schema[node].update(kwargs['child_node'])
+
+			else:
+				raise TypeError("The 'child_node' parameter must be a SystemNode object or a list of SystemNode.")
+		else:
+			self.schema.setdefault(node, set())
+	
+	def _check_for_instruction(self, node:SystemNode, keyword:str):
+
+		if keyword in self.thread.last_message:
+			return True
+		else:
+			return False
+
+	# def input_prompt(self, prompt:str):
+
+	# 	print(f'Input prompt: running thread done')
+	# 	print('Input prompt: checking for instructions')
+
+	# 	if self._check_for_instruction(keyword='Start work:'):
+			
+	# 		print('Input prompt: instructions found, giving instruction to sub agents')
+	# 		self._give_instruction_to_sub_agents()
+		
+	# 	else:
+	# 		print('Input prompt: no instructions found')
+
+	# 	print('Input prompt: done')

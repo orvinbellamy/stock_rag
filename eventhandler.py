@@ -33,9 +33,10 @@ class EventHandler(AssistantEventHandler):
 class ThreadManager():
 	def __init__(
 			self, 
-			client: OpenAI, 
-			prompt: str, 
-			assistants:list[AgentHandler], # maybe this is better with **kwargs?
+			client:OpenAI, 
+			prompt:str, 
+			# manager:ThreadAgentManager,
+			# assistants:list[AgentHandler]=[], # maybe this is better with **kwargs?
 			attachments:list=[]):
 		
 		if prompt is None and attachments is not None:
@@ -67,12 +68,6 @@ class ThreadManager():
 		self._client = client
 		self.thread = self._client.beta.threads.create(messages=message)
 		self.thread_id = self.thread.id
-		self.assistants = assistants
-		
-		# Assign the thread_id to the assistant object
-		# Now we can trace assistants and their threads between one another
-		for assistant in self.assistants:
-			assistant.threads.append(self.thread_id)
 
 		df_schema = {
 			'message_id': 'str',
@@ -129,6 +124,16 @@ class ThreadManager():
 		self.df_messages =  pd.concat([self.df_messages, df_append], ignore_index=True)
 		
 		self.last_message = message_text
+
+	# # Add assistant to link it to the thread
+	# def add_assistant(self, assistant:AgentHandler):
+
+	# 	self.manager.link(thread=self, agent=assistant)
+
+	# # Remove assistant from the thread
+	# def remove_assistant(self, assistant:AgentHandler):
+
+	# 	self.manager.link(thread=self, agent=assistant)
 
 	def _combine_messages(self, message: pd.Series, messages_combined: list, index: str):
 		messages_combined_string = '\n'.join(messages_combined)
@@ -256,14 +261,9 @@ class ThreadManager():
 		else:
 			print('No new message')
 	
-	def run_thread(self, assistant: AgentHandler, prompt:str = None, attachments:list = []):
+	def run_thread(self, assistant:AgentHandler, prompt:str=None, attachments:list=[]):
 		
-		# Check to see if assistant is already assigned to this thread
-		if assistant not in self.assistants:
-
-			raise ValueError('Assistant is not yet assigned to this ThreadManager object. Assign the assistant first via the .assistant attribute.')
-
-		elif prompt is None and len(attachments) > 0:
+		if prompt is None and len(attachments) > 0:
 			raise ValueError('Attachment is provided without prompt')
 		
 		elif prompt is None:
