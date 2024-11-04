@@ -1,5 +1,6 @@
 ### For managing multiple agents together ###
 
+from typing import Union
 from openai import OpenAI
 from agenthandler import AgentHandler
 from eventhandler import ThreadManager
@@ -139,8 +140,38 @@ class SystemNode:
 
 class MultiNodeManager():
 
-	def __init__(self):
-		self.schema = {}
+	def __init__(self, schema:dict={}):
+
+		self.schema = schema
+		
+		# This set contains all unique nodes inside this object
+		# All node must be unique, there cannot be any duplicate
+		self._nodes_unique = set()
+		
+		if schema != {}:
+
+			self.main_node = self._find_main_node
+		else:
+			self.main_node = None
+
+	# This function checks whether a node already exists in this object
+	# If it doesn't exist, add them
+	def _add_nodes_unique(self, nodes:Union[SystemNode,list]):
+
+		if isinstance(nodes, SystemNode) and nodes not in self._nodes_unique:
+			
+			self._nodes_unique.add(nodes)
+
+		elif isinstance(nodes, list):
+
+			for item in nodes:
+
+				if isinstance(nodes, SystemNode) and nodes not in self._nodes_unique:
+					self._nodes_unique.add(nodes)
+				else:
+					raise ValueError('This node already exists in the object. All nodes in object must be unique.')
+		else:
+			raise ValueError('This node already exists in the object. All nodes in object must be unique.')
 
 	def _find_main_node(self):
 
@@ -157,6 +188,45 @@ class MultiNodeManager():
 			raise ValueError("There should be exactly one main node.")
 		
 		return main_nodes[0]
+	
+	def set_schema(self, schema:dict):
+
+		self.schema = schema
+
+		self.main_node = self._find_main_node()
+
+	def _check_hierarchy(self):
+
+		hierarchy = {}
+
+		# Get the current schema in hierarchical order
+		for i in range(1,100): # Max limit of 100
+
+			# First hierarchy which is the main node has to be done manually
+			if i == 0:
+				hierarchy[1] = [self.main_node]
+				hierarchy[2] = list(self.schema[self.main_node])
+			
+			else:
+
+				# Create next hierarchy
+				hierarchy[i+1] = []
+
+				# Loop through nodes in the existing hierarchy and find their child nodes
+				for node in hierarchy[i]:
+
+					# Add child nodes to the next hierarchy
+					hierarchy[i+1] += list(self.schema[node])
+			
+			# If there is no mode child node, end the loop
+			if hierarchy[i+1] == []:
+				break
+
+		# Combine all lists in the dictionary into a single list
+		hierarchy_nodes = [item for sublist in hierarchy.values() for item in sublist]
+
+		if len(hierarchy_nodes) != len(set(hierarchy_nodes)):
+			raise ValueError('At least one node exists in multiple hierarchy.')
 
 	def add_node(self, node:SystemNode, **kwargs):
 
@@ -170,23 +240,31 @@ class MultiNodeManager():
 			if not isinstance(kwargs['parent_node'], SystemNode):
 				raise TypeError("The 'parent_node' parameter must be a SystemNode object.")
 			else:
+				self._add_nodes_unique(nodes=node)
 				self.schema.setdefault(kwargs['parent_node'], set()).add(node)
 
 		elif 'child_node' in kwargs:
 
 			if isinstance(kwargs['child_node'], SystemNode):
+				self._add_nodes_unique(nodes=kwargs['child_node'])
 				self.schema.setdefault(node, set()).add(kwargs['child_node'])
 
 			elif isinstance(kwargs['child_node'], list) and all(isinstance(item, SystemNode) for item in kwargs['child_node']):
 				
 				self.schema.setdefault(node, set())
 
+				self._add_nodes_unique(nodes=kwargs['child_node'])
 				self.schema[node].update(kwargs['child_node'])
 
 			else:
 				raise TypeError("The 'child_node' parameter must be a SystemNode object or a list of SystemNode.")
 		else:
 			self.schema.setdefault(node, set())
+
+		self._check_hierarchy()
+
+		# Set the main node
+		self.main_node = self._find_main_node()
 	
 	def _check_for_instruction(self, node:SystemNode, keyword:str):
 
