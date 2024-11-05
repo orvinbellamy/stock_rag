@@ -258,8 +258,12 @@ class ThreadManager():
 			self.df_messages =  pd.concat([self.df_messages, df_append], ignore_index=True)
 
 			self.last_message = dic_message['message_text']
+
+			return dic_message['text']
 		else:
 			print('No new message')
+
+			return None
 	
 	def run_thread(self, assistant:AgentHandler, prompt:str=None, attachments:list=[]):
 		

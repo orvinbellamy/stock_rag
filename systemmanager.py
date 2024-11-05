@@ -1,5 +1,6 @@
 ### For managing multiple agents together ###
 
+import pandas as pd
 from typing import Union
 from openai import OpenAI
 from agenthandler import AgentHandler
@@ -71,52 +72,51 @@ class SystemNode:
 	def delete_thread(self):
 		self.thread.delete_thread()
 
-	def _check_for_instruction(self, keyword:str):
+	def _check_for_instruction(self, message:str, keyword:str):
 
-		if keyword in self.thread.last_message:
+		if keyword in message:
 			return True
 		else:
 			return False
 		
+	def _get_latest_message_from_agents(self):
+
+		# Get the last location (index) of each assistant_id
+		df_max_loc = self.thread.df_messages.groupby('assistant_id').agg({'_msg_loc': 'max'}).reset_index()
+
+		# Inner join with df_messages to get the latest message
+		df_last_messages = pd.merge(df_max_loc, self.thread.df_messages[['assistant_id', '_msg_loc', 'message_text']], how='inner', on=['assistant_id', '_msg_loc'])
+
+		return df_last_messages
+		
 	def _give_instruction_to_sub_agents(self):
+
+		# This is under the assumption that all sub agents will receive the same instruction from the main agent
+
+		message_output = {}
 
 		prompt = self.thread.last_message
 
+		# Loop through list of sub agents
 		for agent in self.sub_agents:
+			
 
 			print(f'Giving instructions to {agent.assistant_name}')
+			
 			self.thread.run_thread(
 				assistant=agent,
 				prompt=prompt
 			)
 
-			# Check to see if there's any instruction from the output of the last sub agent
-			if not self._check_for_instruction(keyword='Start work:'):
-				
-				print('No instruction found')
+			message_output[agent] = self.thread.last_message
+		
+		print('Giving instructions to sub agents done')
 
-			# If there is instruction
-			# Check to see if sub agent is a main agent in a child node
-			elif self.child_nodes is not None:
-				
-				print(f'Instruction found, and sub agent is a main agent in a child node')
-
-				for node in self.child_nodes:
-					if node.main_agent == agent:
-
-						# This is a mutual recursion
-						# It won't create infinite loop
-						# The limit is the depth of the child nodes
-						node.input_prompt(prompt=self.thread.last_message)
-					break
-			else:
-				print('Instruction found, but sub agent is not a main agent in a child node')
-				
-
-		### TODO: Need to figure out how to parse the responses and for the manager to review each response
-		### TODO: Need to figure out how to trigger a run input in child nodes from an output in parent node
+		return message_output
 	
 	def input_prompt(self, prompt:str):
+
+		message_output = {}
 
 		print(f'Input prompt: running thread with main agent: {self.main_agent.assistant_name}')
 
@@ -125,34 +125,54 @@ class SystemNode:
 			prompt=prompt
 		)
 
+		message_output[self.main_agent] = self.thread.last_message
+
 		print(f'Input prompt: running thread done')
 		print('Input prompt: checking for instructions')
 
-		if self._check_for_instruction(keyword='Start work:'):
+		if self._check_for_instruction(message=self.thread.last_message, keyword='Start work:'):
 			
 			print('Input prompt: instructions found, giving instruction to sub agents')
-			self._give_instruction_to_sub_agents()
+			
+			# Give instructions to sub agents
+			# Returns their output from the instructions given
+			message_output_sub_agents = self._give_instruction_to_sub_agents()
+
+			# Combine message_output and message_output_sub_agents
+			# message_output now has outputs from all agents which were given a prompt
+			message_output.update(message_output_sub_agents)
 		
 		else:
 			print('Input prompt: no instructions found')
 
 		print('Input prompt: done')
 
+		return message_output
+
 class MultiNodeManager():
+
+	## TODO: When adding node or setting schema. Should assign them to a staging variable, and then validate hierarchy (_check_hierachy) before assigning it to the schema attribute
+	## This way if the validation failed, it will not update the current schema
 
 	def __init__(self, schema:dict={}):
 
-		self.schema = schema
-		
-		# This set contains all unique nodes inside this object
-		# All node must be unique, there cannot be any duplicate
-		self._nodes_unique = set()
-		
 		if schema != {}:
+			
+			self.hierarcy = self._check_hierarchy(schema=schema)
+			self.schema = schema.copy()
+			self._main_node = self._find_main_node()
 
-			self.main_node = self._find_main_node
+			# need to add self._nodes_unique here
+			# 		
 		else:
-			self.main_node = None
+
+			self.hierarchy = {}
+			self.schema = schema.copy()
+			self._main_node = None
+
+			# This set contains all unique nodes inside this object
+			# All node must be unique, there cannot be any duplicate
+			self._nodes_unique = set()
 
 	# This function checks whether a node already exists in this object
 	# If it doesn't exist, add them
@@ -193,9 +213,10 @@ class MultiNodeManager():
 
 		self.schema = schema
 
-		self.main_node = self._find_main_node()
+		self._main_node = self._find_main_node()
 
-	def _check_hierarchy(self):
+	# Not sure if this is necessary since there's already validation in add_node()
+	def _check_hierarchy(self, schema:dict):
 
 		hierarchy = {}
 
@@ -204,8 +225,8 @@ class MultiNodeManager():
 
 			# First hierarchy which is the main node has to be done manually
 			if i == 0:
-				hierarchy[1] = [self.main_node]
-				hierarchy[2] = list(self.schema[self.main_node])
+				hierarchy[1] = [self._main_node]
+				hierarchy[2] = list(schema[self._main_node])
 			
 			else:
 
@@ -216,7 +237,7 @@ class MultiNodeManager():
 				for node in hierarchy[i]:
 
 					# Add child nodes to the next hierarchy
-					hierarchy[i+1] += list(self.schema[node])
+					hierarchy[i+1] += list(schema[node])
 			
 			# If there is no mode child node, end the loop
 			if hierarchy[i+1] == []:
@@ -227,10 +248,16 @@ class MultiNodeManager():
 
 		if len(hierarchy_nodes) != len(set(hierarchy_nodes)):
 			raise ValueError('At least one node exists in multiple hierarchy.')
+		else:
+			return hierarchy_nodes
 
 	def add_node(self, node:SystemNode, **kwargs):
 
-		## TODO: need to make sure: 1. cannot add node that already exists, 2. node hierarchy cannot loop
+		## TODO: need to add staging for _nodes_unique attribute too
+
+		# Use a copy of schema as a staging
+		# So that if there's an error it will not update the schema attribute
+		schema_stg = self.schema.copy()
 
 		# Check if either `parent_node` or `child_node` is provided, but not both
 		if 'parent_node' in kwargs and 'child_node' in kwargs:
@@ -241,37 +268,65 @@ class MultiNodeManager():
 				raise TypeError("The 'parent_node' parameter must be a SystemNode object.")
 			else:
 				self._add_nodes_unique(nodes=node)
-				self.schema.setdefault(kwargs['parent_node'], set()).add(node)
+				schema_stg.setdefault(kwargs['parent_node'], set()).add(node)
 
 		elif 'child_node' in kwargs:
 
 			if isinstance(kwargs['child_node'], SystemNode):
 				self._add_nodes_unique(nodes=kwargs['child_node'])
-				self.schema.setdefault(node, set()).add(kwargs['child_node'])
+				schema_stg.setdefault(node, set()).add(kwargs['child_node'])
 
 			elif isinstance(kwargs['child_node'], list) and all(isinstance(item, SystemNode) for item in kwargs['child_node']):
 				
-				self.schema.setdefault(node, set())
+				schema_stg.setdefault(node, set())
 
 				self._add_nodes_unique(nodes=kwargs['child_node'])
-				self.schema[node].update(kwargs['child_node'])
+				schema_stg[node].update(kwargs['child_node'])
 
 			else:
 				raise TypeError("The 'child_node' parameter must be a SystemNode object or a list of SystemNode.")
 		else:
-			self.schema.setdefault(node, set())
+			schema_stg.setdefault(node, set())
 
-		self._check_hierarchy()
+		self.schema = schema_stg.copy()
+
+		self.hierarchy = self._check_hierarchy()
 
 		# Set the main node
-		self.main_node = self._find_main_node()
+		self._main_node = self._find_main_node()
 	
-	def _check_for_instruction(self, node:SystemNode, keyword:str):
+	def _check_for_instruction(self, message:str, keyword:str):
 
-		if keyword in self.thread.last_message:
+		if keyword in message:
 			return True
 		else:
 			return False
+ 
+	def input_prompt(self, prompt:str):
+
+		print('Inputting prompt to main agent of main node')
+
+		for i in range(1,10):
+
+			# Insert prompt into the main node
+			message_output = self._main_node.input_prompt(prompt=prompt)
+
+			# Check for instructions from sub agents in the main node
+			for agent in message_output:
+
+				# If agent is the main agent
+				if agent == self._main_node.main_agent:
+					
+					# Do nothing, no need to check for instructions for main agent
+					# That has already been done in the main node  
+					pass
+
+				# Else it's a sub agent, check for instruction
+				elif self._check_for_instruction(message=message_output[agent], keyword='Start work:'):
+					
+					pass
+					# Check whether the sub agent is a main agent of an immediate child node
+				
 
 	# def input_prompt(self, prompt:str):
 
