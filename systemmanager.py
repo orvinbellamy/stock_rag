@@ -114,7 +114,16 @@ class SystemNode:
 
 		return message_output
 	
-	def input_prompt(self, prompt:str):
+	def input_prompt(self, prompt:str) -> dict:
+
+		"""
+		The format of the output, message_output is
+		{
+			agent: "last_message",
+			agent: "last_message",
+			agent: "last_message"
+		}
+		"""
 
 		message_output = {}
 
@@ -161,11 +170,12 @@ class MultiNodeManager():
 		"""
 		The schema has to be in this format:
 		schema = {
-			node: [
-				{node: []},
-				{node: []},
-				{node: []}
-			]
+			node1: set([node2, node3]),
+			node2: set([node4, node5]),
+			node3: set([node6]),
+			node4: set([]),
+			node5: set([]),
+			node5: set([])
 		}
 
 		Hierarchy has the following format:
@@ -324,51 +334,78 @@ class MultiNodeManager():
  
 	def input_prompt(self, prompt:str):
 
+		"""
+		The structure of the node_message_tracker is this
+		{
+			1: {main_node: main_node_message_output},
+			2: {node1: node1_message_output, node2: node2_message_output},
+			3: {node3: node3_message_output, node4: node4W_message_output},
+		}
+		"""
+
 		print('Inputting prompt to main agent of main node')
 
 		# Get the depth of the schema's hierarchy
 		hierarchy_depth = len(self.hierarchy)
 
 		# Placeholder
-		message_output = {}
+		node_message_tracker = {}
 
 		# Loop through each hierarchy level
 		# From 1 (the top most, where the main node is) to the bottom
+		# Each loop is a hierarchy {1: [list of nodes]}
 		for depth in range(1,hierarchy_depth+1):
 			
 			if depth == 1:
 
+				# Get a dataframe of the last message from all agent in node
 				message_output = self._main_node.input_prompt(prompt=prompt)
-
-			else:
 				
-				# Check the last message of each sub_agent in the last message_output
-				for sub_agent in message_output:
+				# Store dataframe in the message tracker
+				node_message_tracker[1]= {self._main_node: message_output}
+			
+			else:
 
-					# Check if there's instruction, and if the sub agent is a main agent in the current hierarchy
-					if self._check_for_instruction(message=message_output[sub_agent], keyword='Start work:') and sub_agent in self.hierarchy[depth]:
+				node_message_tracker[depth] = {}
+				
+				# Check the last message of each sub_agent in all message_output from the previous depth
 
-				# In each depth, loop through each node
-				for node in self.hierarchy[depth]:
+				# Structure of dic_last_nodes_messages
+				# {node1: df_message_output1, node2; df_message_output2}
+				dic_last_nodes_messages = node_message_tracker[depth-1]
 
-					# Insert prompt into the main agent in the node
-					message_output = node.input_prompt(prompt=prompt)
+				# Loop through each last node's message_output
+				# Each loop is a message_output (see SystemNode.input_prompt)
+				# message_output = {agent:'last_message', agent:'last_message',}
+				for last_node in dic_last_nodes_messages:
 
-					# Check for instructions from sub agents in the node
-					for agent in message_output:
-						
-						# If agent is the main agent
-						if agent == node.main_agent:
+					# Get child nodes of the last node (if it exists)
+					child_nodes_of_last_node = self.schema[last_node]
+
+					# Check if the last node has child nodes
+					if len(child_nodes_of_last_node)>0:
+
+						dic_last_message_output = dic_last_nodes_messages[last_node]
+
+						# Loop through each agent in the message_output
+						# dic_last_message_output structure
+						# {agent:"last_mesage_output", agent:"last_mesage_output"}
+						for agent in dic_last_message_output:
 							
-							# Do nothing, no need to check for instructions for main agent
-							# That has already been done in the main node  
-							pass
+							# We only want to check messages from sub agents
+							# because main agent will not give instructions to child nodes
+							# also need to check if there is instruction
+							if agent != last_node.main_agent and self._check_for_instruction(message=dic_last_message_output[agent], keyword='Start work:'):
 
-						# Else it's a sub agent, check for instruction
-						elif self._check_for_instruction(message=message_output[agent], keyword='Start work:'):
-							
-							pass
-							# Check whether the sub agent is a main agent of an immediate child node
+								for child_node in child_nodes_of_last_node:
+
+									if agent == child_node.main_agent:
+										
+										prompt = dic_last_message_output[agent]
+										message_output = child_node.input_prompt(prompt=prompt)
+
+										node_message_tracker[depth][child_node] = message_output
+
 				
 
 	# def input_prompt(self, prompt:str):
