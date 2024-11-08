@@ -49,7 +49,8 @@ class SystemNode:
 	# 1 agent will always be the reviewer
 	# The other agent(s) will do the actual work
 
-	# TODO: Do we actually need SystemNode? Can't we do this with ThreadManager?
+	# TODO: Need to write a function that takes outputs from the sub agents
+	# TODO: and then gives it back to the main agent
 
 	def __init__(
 			self, 
@@ -61,25 +62,27 @@ class SystemNode:
 		self.name = name
 		self.main_agent = main_agent
 		self.sub_agents = sub_agents
-		self.input_msg = ''
-		self.output_msg = ''
+		self.last_run_messages = {}
+
+		# This will label messages in thread.df_messages in node_run_id column
+		# run_id labels messages per ThreadManager.run_thread()
+		# node_run_id labels messages per self.input_prompt()
+		self._node_run_counter = 0 
 
 		prompt_start = 'Ignore this sentence, this is only to begin the thread.'
 		self.thread = ThreadManager(client=client, prompt=prompt_start)
-
-		# TODO: Add an input prompt and output prompt, each node needs to have an input and output
 		
 	def delete_thread(self):
 		self.thread.delete_thread()
 
-	def _check_for_instruction(self, message:str, keyword:str):
+	def _check_for_instruction(self, message:str, keyword:str) -> bool:
 
 		if keyword in message:
 			return True
 		else:
 			return False
 		
-	def _get_latest_message_from_agents(self):
+	def _get_latest_message_from_agents(self) -> pd.DataFrame:
 
 		# Get the last location (index) of each assistant_id
 		df_max_loc = self.thread.df_messages.groupby('assistant_id').agg({'_msg_loc': 'max'}).reset_index()
@@ -88,8 +91,18 @@ class SystemNode:
 		df_last_messages = pd.merge(df_max_loc, self.thread.df_messages[['assistant_id', '_msg_loc', 'message_text']], how='inner', on=['assistant_id', '_msg_loc'])
 
 		return df_last_messages
+	
+	def _get_latest_node_run_message_from_agents(self) -> pd.DataFrame:
+
+		# Get the last location (index) of each assistant_id
+		df_max_loc = self.thread.df_messages.groupby('assistant_id').agg({'node_run_id': 'max'}).reset_index()
+
+		# Inner join with df_messages to get the latest message
+		df_last_messages = pd.merge(df_max_loc, self.thread.df_messages[['assistant_id', 'node_run_id', 'message_text']], how='inner', on=['assistant_id', 'node_run_id'])
+
+		return df_last_messages
 		
-	def _give_instruction_to_sub_agents(self):
+	def _give_instruction_to_sub_agents(self) -> dict:
 
 		# This is under the assumption that all sub agents will receive the same instruction from the main agent
 
@@ -105,7 +118,8 @@ class SystemNode:
 			
 			self.thread.run_thread(
 				assistant=agent,
-				prompt=prompt
+				prompt=prompt,
+				node_run_id=self._node_run_counter
 			)
 
 			message_output[agent] = self.thread.last_message
@@ -131,7 +145,8 @@ class SystemNode:
 
 		self.thread.run_thread(
 			assistant=self.main_agent,
-			prompt=prompt
+			prompt=prompt,
+			node_run_id=self._node_run_counter
 		)
 
 		message_output[self.main_agent] = self.thread.last_message
@@ -156,11 +171,25 @@ class SystemNode:
 
 		print('Input prompt: done')
 
+		# each time input_prompt() is called, increase _node_run_counter by 1 permanently
+		self._node_run_counter += 1
+
+		self.last_run_messages = message_output
+
 		return message_output
+	
+	def report_to_main_agent(self) -> dict:
+
+		# TODO: finish this function
+
+		last_node_run_messages = self._get_latest_node_run_message_from_agents()
 
 class MultiNodeManager():
 
-	## TODO: When adding node or setting schema. Should assign them to a staging variable, and then validate hierarchy (_check_hierachy) before assigning it to the schema attribute
+	## TODO: input_prompt can send prompts from main_node to the very bottom node
+	## TODO: now need to code how to get the output from the very bottom child node up 
+	## TODO: to the main node again
+
 	## This way if the validation failed, it will not update the current schema
 
 	# Exclude self._nodes_unique for now, don't think we need it since we have self._check_hierarchy()
@@ -239,10 +268,12 @@ class MultiNodeManager():
 		
 		return main_nodes[0]
 	
-	def set_schema(self, schema:dict):
+	def set_schema(self, schema:dict, schema_depth:int=20):
 
-		self.schema = schema
-
+		# Check if schema is valid first before assigning to self.schema
+		# _check_hierarchy() will raise error if the schema is not valid
+		self.hierarcy = self._check_hierarchy(schema=schema, depth=schema_depth)
+		self.schema = schema.copy()
 		self._main_node = self._find_main_node()
 
 	# Not sure if this is necessary since there's already validation in add_node()
@@ -282,8 +313,6 @@ class MultiNodeManager():
 			return hierarchy_nodes
 
 	def add_node(self, node:SystemNode, depth:int=20, **kwargs):
-
-		## TODO: need to add staging for _nodes_unique attribute too
 
 		# Use a copy of schema as a staging
 		# So that if there's an error it will not update the schema attribute
@@ -348,9 +377,6 @@ class MultiNodeManager():
 		# Get the depth of the schema's hierarchy
 		hierarchy_depth = len(self.hierarchy)
 
-		# Placeholder
-		node_message_tracker = {}
-
 		# Loop through each hierarchy level
 		# From 1 (the top most, where the main node is) to the bottom
 		# Each loop is a hierarchy {1: [list of nodes]}
@@ -359,52 +385,53 @@ class MultiNodeManager():
 			if depth == 1:
 
 				# Get a dataframe of the last message from all agent in node
+				# message_output structure is
+				# message_output = {agent:'last_message', agent:'last_message',}
 				message_output = self._main_node.input_prompt(prompt=prompt)
 				
 				# Store dataframe in the message tracker
-				node_message_tracker[1]= {self._main_node: message_output}
+				# node_message_tracker[1]= {self._main_node: message_output}
 			
 			else:
-
-				node_message_tracker[depth] = {}
 				
 				# Check the last message of each sub_agent in all message_output from the previous depth
 
-				# Structure of dic_last_nodes_messages
-				# {node1: df_message_output1, node2; df_message_output2}
-				dic_last_nodes_messages = node_message_tracker[depth-1]
+				# Get the list of nodes in the previous hierarchy
+				list_last_nodes = self.hierarchy[depth-1]
 
-				# Loop through each last node's message_output
-				# Each loop is a message_output (see SystemNode.input_prompt)
-				# message_output = {agent:'last_message', agent:'last_message',}
-				for last_node in dic_last_nodes_messages:
+				# Loop through each last node
+				for last_node in list_last_nodes:
 
 					# Get child nodes of the last node (if it exists)
 					child_nodes_of_last_node = self.schema[last_node]
 
 					# Check if the last node has child nodes
-					if len(child_nodes_of_last_node)>0:
+					# If not then skip, this node has no child node in current hierarchy
+					if len(child_nodes_of_last_node)==0:
+						continue
 
-						dic_last_message_output = dic_last_nodes_messages[last_node]
+					# Check the last messages/output of each agent from the last run (in previous hierarchy) 
+					# last_node.last_run_messages structure
+					# {agent:"last_mesage_output", agent:"last_mesage_output"}
+					for agent in last_node.last_run_messages:
+						
+						if agent == last_node.main_agent:
+							continue
 
-						# Loop through each agent in the message_output
-						# dic_last_message_output structure
-						# {agent:"last_mesage_output", agent:"last_mesage_output"}
-						for agent in dic_last_message_output:
+						# We only want to check messages from sub agents
+						# because main agent will not give instructions to child nodes
+						# also need to check if there is instruction
+						elif self._check_for_instruction(message=last_node.last_run_messages[agent], keyword='Start work:'):
 							
-							# We only want to check messages from sub agents
-							# because main agent will not give instructions to child nodes
-							# also need to check if there is instruction
-							if agent != last_node.main_agent and self._check_for_instruction(message=dic_last_message_output[agent], keyword='Start work:'):
-
-								for child_node in child_nodes_of_last_node:
-
-									if agent == child_node.main_agent:
-										
-										prompt = dic_last_message_output[agent]
-										message_output = child_node.input_prompt(prompt=prompt)
-
-										node_message_tracker[depth][child_node] = message_output
+							# Loop through each child node (current hierarchy)
+							# of the last node (previous hierarchy)
+							for child_node in child_nodes_of_last_node:
+								
+								# Check if the sub agent from the last node is a main agent in one of the child nodes
+								if agent == child_node.main_agent:
+									
+									prompt = last_node.last_run_messages[agent]
+									message_output = child_node.input_prompt(prompt=prompt)
 
 				
 

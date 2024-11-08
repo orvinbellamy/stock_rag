@@ -77,7 +77,8 @@ class ThreadManager():
 			'role': 'str',
 			'run_id': 'str',
 			'message_text': 'str',
-			'_msg_loc': 'int'
+			'_msg_loc': 'int',
+			'node_run_id': 'int'
 		}
 		self.df_messages = pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in df_schema.items()})
 
@@ -151,7 +152,7 @@ class ThreadManager():
 		
 		return dic_message
 	
-	def get_last_message(self):
+	def get_last_message(self, node_run_id:int=None) -> str:
 		
 		#### Note assistant_id can be None
 
@@ -180,7 +181,8 @@ class ThreadManager():
 					'role': message.role,
 					'run_id': message.run_id,
 					'message_text': message.content[0].text.value,
-					'_msg_loc': index + max_loc
+					'_msg_loc': index + max_loc,
+					'node_run_id': node_run_id
 				} for index, message in enumerate(messages)]
 			
 			df_new_messages = pd.DataFrame(dic_new_messages)
@@ -265,7 +267,7 @@ class ThreadManager():
 
 			return None
 	
-	def run_thread(self, assistant:AgentHandler, prompt:str=None, attachments:list=[]):
+	def run_thread(self, assistant:AgentHandler, prompt:str=None, attachments:list=[], node_run_id:int=None):
 		
 		if prompt is None and len(attachments) > 0:
 			raise ValueError('Attachment is provided without prompt')
@@ -313,7 +315,7 @@ class ThreadManager():
 		# Buffer maybe we need to wait after thread run is done for data to update
 		time.sleep(1)
 
-		self.get_last_message()
+		self.get_last_message(node_run_id=node_run_id)
 	
 	def delete_thread(self):
 
