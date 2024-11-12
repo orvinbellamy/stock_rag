@@ -316,6 +316,8 @@ class ThreadManager():
 		time.sleep(1)
 
 		self.get_last_message(node_run_id=node_run_id)
+
+		return self.last_message
 	
 	def delete_thread(self):
 
