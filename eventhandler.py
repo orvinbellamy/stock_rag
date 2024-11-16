@@ -261,7 +261,7 @@ class ThreadManager():
 
 			self.last_message = dic_message['message_text']
 
-			return dic_message['text']
+			return dic_message['message_text']
 		else:
 			print('No new message')
 
@@ -323,6 +323,21 @@ class ThreadManager():
 
 		self._client.beta.threads.delete(thread_id=self.thread_id)
 		print(f"thread: {self.thread_id} has been deleted.")
+
+	
+	def clear_and_delete(self):
+
+		"""
+		Delete thread and self to free up memory
+		"""
+
+		self.delete_thread()
+		
+		self.messages = None
+		self.df_messages = None
+
+		# Delete the instance by removing references to itself
+		del self
 
 
 ## Manually checking run status of a thread

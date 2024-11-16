@@ -11,14 +11,24 @@ class FileHandler:
         self.df = df
         self.file_name = file_name
         self.file_path = file_path
-        self.file_id = dic_file[file_name]
+
+        try:
+            # That means the file already exists
+            dic_file['df_balance_sheet.csv']
+
+            self.file_id = dic_file[file_name]
+
+        except KeyError:
+            print("Note: File doesn't exist yet")     
+            self.file_id = ''
+       
         self._dic_file_name = dic_file_name
 
         # Make sure the csv is always updated
         df.to_csv(f"{file_path}{file_name}", index=False)
 
     # Delete the file from openai and 
-    def update_openai_file(self, dic_file: dict):
+    def update_openai_file(self):
         
         # Try deleting file from openai
         try:
@@ -40,7 +50,7 @@ class FileHandler:
 
         self.df.to_csv(f"{self.file_path}{self.file_name}", index=False)
 
-        dic_file[self.file_name] = self.file_id
+        self._dic_file[self.file_name] = self.file_id
     
         with open(f"{self.file_path}{self._dic_file_name}", 'w') as json_file:
             json.dump(self._dic_file, json_file)

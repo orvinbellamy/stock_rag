@@ -51,6 +51,8 @@ class SystemNode:
 
 	# TODO: Need to write a function that takes outputs from the sub agents
 	# TODO: and then gives it back to the main agent
+	# TODO: We don't need to worry giving data mid run. All data should be set first and assigned to the agents/assistants
+	# TODO: User input (stock ticker) -> runs stock_data_setup -> run the multi node system
 
 	def __init__(
 			self, 
@@ -259,6 +261,12 @@ class SystemNode:
 		message_from_main_agent = self.thread.run_thread(assistant=self.main_agent, prompt=messages_to_report, node_run_id=node_run_id)
 
 		return message_from_main_agent
+	
+	def clear_and_delete(self):
+
+		self.thread.clear_and_delete()
+
+		del self
 
 class MultiNodeManager():
 
