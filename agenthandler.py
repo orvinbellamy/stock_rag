@@ -5,6 +5,9 @@ import json
 from typing import Literal
 
 class AgentHandler():
+
+	# NOTE: assistants.json() will no longer have file_ids
+	# If we want to assign a file, we have to do it manually
 	def __init__(
 			self,
 			client:OpenAI, 
@@ -63,32 +66,36 @@ class AgentHandler():
 				instructions=dic_file[assistant_name]['instructions'],
 				model=dic_file[assistant_name]['model'],
 				tools=dic_file[assistant_name]['tools'],
-				tool_resources=dic_file[assistant_name]['tool_resources']
+				tool_resources={} 
 			)
 
 			print(f'Assistant has been updated, name: {assistant_name}, id: {self.assistant.id}')
   
-	def update_agent(self, assistant_name : str, dic_file : dict, dic_file_path : str = '', instructions : str = None, model : str = None, tools : list = None, tool_resources : dict = None):
-		
+	def update_agent(self, instructions:str=None, model:str=None, tools:list=None, agent_files:list=None):
+
 		if instructions is None:
-			instructions = self._dic_agent['instructions']
+			instructions = self._dic_agent[self.assistant_name]['instructions']
 		else:
 			self.dic_agent['instructions'] = instructions
    
 		if model is None:
-			model = self._dic_agent['model']
+			model = self._dic_agent[self.assistant_name]['model']
 		else:
 			self.dic_agent['model'] = model
    
 		if tools is None:
-			tools = self._dic_agent['tools']
+			tools = self._dic_agent[self.assistant_name]['tools']
 		else:
 			self.dic_agent['tools'] = tools
    
-		if tool_resources is None:
-			tool_resources = self._dic_agent['tool_resources']
+		if agent_files is None:
+			tool_resources = {}
 		else:
-			self._dic_agent['tool_resources'] = tool_resources
+			tool_resources = {
+				'code_interpreter': {
+					'file_ids': agent_files
+				}
+			}
 		
 		self.assistant = self.client.beta.assistants.update(
 			assistant_id = self.assistant_id,
@@ -100,9 +107,9 @@ class AgentHandler():
 
 		print(f"assistant_id: {self.assistant_id} has been updated.")
   
-		dic_file[assistant_name] = self._dic_agent
+		# dic_file[assistant_name] = self._dic_agent
   
-		print(f"{assistant_name} properties in main dictionary has been updated.")
+		print(f"{self.assistant_name} properties in main dictionary has been updated.")
 
 		with open(f"{self._dic_file_path}{self._dic_file_name}", 'w') as json_file:
 			json.dump(self._dic_agent, json_file, indent='\t')

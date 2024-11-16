@@ -53,5 +53,5 @@ class FileHandler:
         self._dic_file[self.file_name] = self.file_id
     
         with open(f"{self.file_path}{self._dic_file_name}", 'w') as json_file:
-            json.dump(self._dic_file, json_file)
+            json.dump(self._dic_file, json_file, indent='\t')
             print(f"{self.file_path}{self._dic_file_name} file has been updated")

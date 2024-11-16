@@ -34,8 +34,7 @@ class ThreadManager():
 	def __init__(
 			self, 
 			client:OpenAI, 
-			prompt:str, 
-			# manager:ThreadAgentManager,
+			prompt:str,
 			# assistants:list[AgentHandler]=[], # maybe this is better with **kwargs?
 			attachments:list=[]):
 		

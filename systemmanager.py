@@ -11,7 +11,7 @@ from eventhandler import ThreadManager
 # We only allow running thread against assigned assistant
 # This is so that we can always trace assistant to agent and vice versa
 
-class ThreadAgentManager():
+class AgentThreadManager():
 	def __init__(self):
 		self._thread_to_agents={}
 		self._agent_to_threads={}
@@ -49,8 +49,6 @@ class SystemNode:
 	# 1 agent will always be the reviewer
 	# The other agent(s) will do the actual work
 
-	# TODO: Need to write a function that takes outputs from the sub agents
-	# TODO: and then gives it back to the main agent
 	# TODO: We don't need to worry giving data mid run. All data should be set first and assigned to the agents/assistants
 	# TODO: User input (stock ticker) -> runs stock_data_setup -> run the multi node system
 
@@ -59,11 +57,13 @@ class SystemNode:
 			client:OpenAI, 
 			name:str, 
 			main_agent:AgentHandler, 
-			sub_agents:list[AgentHandler]
+			sub_agents:list[AgentHandler],
+			agent_thread_manager:AgentThreadManager
 			):
 		self.name = name
-		self.main_agent = main_agent # TODO: This needs to be linked with ThreadAgentManager()
-		self.sub_agents = sub_agents # TODO: This needs to be linked with ThreadAgentManager()
+		self.agent_thread_manager = agent_thread_manager
+		self.main_agent = main_agent
+		self.sub_agents = sub_agents
 		self.last_run_messages = {} # This is also message_output, # TODO: naming inconsistency
 
 		# This will label messages in thread.df_messages in node_run_id column
@@ -73,6 +73,14 @@ class SystemNode:
 
 		prompt_start = 'Ignore this sentence, this is only to begin the thread.'
 		self.thread = ThreadManager(client=client, prompt=prompt_start)
+
+		# Link main agent to thread
+		self.agent_thread_manager.link(thread=self.thread, agent=self.main_agent)
+
+		# Link sub agents to thread
+		for sub_agent in self.sub_agents:
+
+			self.agent_thread_manager.link(thread=self.thread, agent=sub_agent)
 		
 	def delete_thread(self):
 		self.thread.delete_thread()
