@@ -278,7 +278,6 @@ class SystemNode:
 
 class MultiNodeManager():
 
-	## TODO: input_prompt can send prompts from main_node to the very bottom node. Now need to code how to get the output from the very bottom child node up to the main node again
 	# TODO: We likely need a separate class or a way to keep track of messages to transfer between nodes
 
 	## This way if the validation failed, it will not update the current schema
@@ -308,9 +307,9 @@ class MultiNodeManager():
 
 		if schema != {}:
 			
-			self.hierarcy = self._check_hierarchy(schema=schema, depth=schema_depth)
+			self.hierarchy = self._check_hierarchy(schema=schema, depth=schema_depth)
 			self.schema = schema.copy()
-			self._main_node = self._find_main_node()
+			self._main_node = self._find_main_node(schema=self.schema)
 
 			# need to add self._nodes_unique here
 			# 		
@@ -343,14 +342,14 @@ class MultiNodeManager():
 	# 	else:
 	# 		raise ValueError('This node already exists in the object. All nodes in object must be unique.')
 
-	def _find_main_node(self):
+	def _find_main_node(self, schema:dict):
 
 		"""
 		Finds the main node in the hierarchy (the node with no parent).
 		"""
 
-		all_nodes = set(self.schema.keys())
-		child_nodes = {child for children in self.schema.values() for child in children}
+		all_nodes = set(schema.keys())
+		child_nodes = {child for children in schema.values() for child in children}
 		
 		main_nodes = list(all_nodes - child_nodes)
 		
@@ -363,22 +362,36 @@ class MultiNodeManager():
 
 		# Check if schema is valid first before assigning to self.schema
 		# _check_hierarchy() will raise error if the schema is not valid
-		self.hierarcy = self._check_hierarchy(schema=schema, depth=schema_depth)
+		self.hierarchy = self._check_hierarchy(schema=schema, depth=schema_depth)
 		self.schema = schema.copy()
-		self._main_node = self._find_main_node()
+		self._main_node = self._find_main_node(schema=self.schema)
 
 	# Not sure if this is necessary since there's already validation in add_node()
 	def _check_hierarchy(self, schema:dict, depth:int=20):
 
+		## First make sure all nodes inside the sets exist as a key
+		
+		# Get all nodes in the sets
+		all_nodes = set().union(*schema.values())
+
+		# Get all nodes in the keys
+		schema_keys = set(schema.keys())
+
+		# Nodes in sets must be a subset of nodes in keys
+		if not all_nodes.issubset(schema_keys):
+			raise ValueError("All nodes must be a key in the schema dictionary")
+
 		hierarchy = {}
+
+		schema_main_node = self._find_main_node(schema=schema)
 
 		# Get the current schema in hierarchical order
 		for i in range(1,depth): # Max limit of 100
 
 			# First hierarchy which is the main node has to be done manually
 			if i == 1:
-				hierarchy[1] = [self._main_node]
-				hierarchy[2] = list(schema[self._main_node])
+				hierarchy[1] = [schema_main_node]
+				hierarchy[2] = list(schema[schema_main_node])
 			
 			else:
 
@@ -391,9 +404,11 @@ class MultiNodeManager():
 					# Add child nodes to the next hierarchy
 					hierarchy[i+1] += list(schema[node])
 			
-			# If there is no mode child node, end the loop
-			if hierarchy[i+1] == []:
-				break
+				# If there is no mode child node, end the loop
+				if hierarchy[i+1] == []:
+
+					hierarchy.pop(i+1,None)
+					break
 
 		# Combine all lists in the dictionary into a single list
 		hierarchy_nodes = [item for sublist in hierarchy.values() for item in sublist]
@@ -401,7 +416,7 @@ class MultiNodeManager():
 		if len(hierarchy_nodes) != len(set(hierarchy_nodes)):
 			raise ValueError('At least one node exists in multiple hierarchy.')
 		else:
-			return hierarchy_nodes
+			return hierarchy
 
 	def add_node(self, node:SystemNode, depth:int=20, **kwargs):
 
@@ -443,7 +458,7 @@ class MultiNodeManager():
 		self.schema = schema_stg.copy()
 
 		# Set the main node
-		self._main_node = self._find_main_node()
+		self._main_node = self._find_main_node(schema=self.schema)
 	
 	def _check_for_instruction(self, message:str, keyword:str):
 

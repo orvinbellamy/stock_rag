@@ -97,7 +97,7 @@ class AgentHandler():
 				}
 			}
 		
-		self.assistant = self.client.beta.assistants.update(
+		self.assistant = self._client.beta.assistants.update(
 			assistant_id = self.assistant_id,
 			instructions = instructions,
 			model = model,
