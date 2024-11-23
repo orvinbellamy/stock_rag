@@ -266,19 +266,24 @@ class ThreadManager():
 
 			return None
 	
-	def run_thread(self, assistant:AgentHandler, prompt:str=None, attachments:list=[], node_run_id:int=None):
+	def run_thread(self, assistant:AgentHandler, prompt:str=None, attachments:list=[], node_run_id:int=None, end_pause:int=5):
 		
 		if prompt is None and len(attachments) > 0:
 			raise ValueError('Attachment is provided without prompt')
 		
 		elif prompt is None:
 
-			with self._client.beta.threads.runs.stream(
+			stream = self._client.beta.threads.runs.create(
 				thread_id=self.thread_id,
 				assistant_id=assistant.assistant_id,
-				event_handler=EventHandler()
-			) as stream:
-				stream.until_done()
+				stream=True
+				# event_handler=EventHandler()
+			) 
+			# as stream:
+			# 	stream.until_done()
+
+			for event in stream:
+				print(event, end='\r')
 		
 		elif prompt is not None:
 			attachment_list = []
@@ -303,18 +308,25 @@ class ThreadManager():
 				}
 			]
 
-			with self._client.beta.threads.runs.stream(
+			stream = self._client.beta.threads.runs.create(
 				thread_id=self.thread_id,
 				assistant_id=assistant.assistant_id,
-				event_handler=EventHandler(),
 				additional_messages=message,
-			) as stream:
-				stream.until_done()
+				stream=True
+			) 
+			# as stream:
+			# 	stream.until_done()
+
+			for event in stream:
+				print(event, end='\r')
 
 		# Buffer maybe we need to wait after thread run is done for data to update
 		time.sleep(1)
 
 		self.get_last_message(node_run_id=node_run_id)
+
+		# Sleep for 5 seconds in anticipation that there will be multiple consecutive runs
+		time.sleep(5)
 
 		return self.last_message
 	

@@ -13,6 +13,15 @@ class YFHandler():
 		self.stocks = yf.Tickers(stock_list)
 		self.stock_list = stock_list
 		self.schemas = schemas
+		self.stock_info = {}
+
+		keys_to_keep = ['industry', 'sector', 'fulltime', 'shortName', 'longName']
+
+		for stock in stock_list:
+			
+			dic_stock_info = self.stocks.tickers[stock].info
+			
+			self.stock_info[stock] = {key: dic_stock_info[key] for key in keys_to_keep if key in dic_stock_info}
 	
 	def import_stocks(self, period:Literal['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max']='5y'):
 

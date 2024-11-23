@@ -18,6 +18,7 @@ class AgentHandler():
 			model:str = None,
 			tools:list = [],
 			tool_resources: dict = {},
+			files:list = [],
 			dic_file_name:str='assistants.json',
 			dic_file_path:str='config/'
 			):
@@ -26,6 +27,7 @@ class AgentHandler():
 		self.assistant_name = assistant_name
 		self._dic_file_name = dic_file_name
 		self._dic_file_path = dic_file_path
+		self.files = files
 		
 		# If creating a new assistant/agent
 		if new:
@@ -96,6 +98,8 @@ class AgentHandler():
 					'file_ids': agent_files
 				}
 			}
+
+			self.files = agent_files
 		
 		self.assistant = self._client.beta.assistants.update(
 			assistant_id = self.assistant_id,

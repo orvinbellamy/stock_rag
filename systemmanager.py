@@ -136,7 +136,8 @@ class SystemNode:
 			self.thread.run_thread(
 				assistant=agent,
 				prompt=prompt,
-				node_run_id=self._node_run_counter
+				node_run_id=self._node_run_counter,
+				attachments=agent.files
 			)
 
 			message_output[agent] = self.thread.last_message
@@ -163,7 +164,8 @@ class SystemNode:
 		self.thread.run_thread(
 			assistant=self.main_agent,
 			prompt=prompt,
-			node_run_id=self._node_run_counter
+			node_run_id=self._node_run_counter,
+			attachments=self.main_agent.files
 		)
 
 		message_output[self.main_agent] = self.thread.last_message
@@ -266,7 +268,11 @@ class SystemNode:
 
 		messages_to_report = '\n'.join(df_last_messages['message_text'])
 
-		message_from_main_agent = self.thread.run_thread(assistant=self.main_agent, prompt=messages_to_report, node_run_id=node_run_id)
+		message_from_main_agent = self.thread.run_thread(
+			assistant=self.main_agent,
+			prompt=messages_to_report,
+			node_run_id=node_run_id
+		)
 
 		return message_from_main_agent
 	
@@ -540,7 +546,7 @@ class MultiNodeManager():
 								# Check if the sub agent from the last node is a main agent in one of the child nodes
 								if agent == child_node.main_agent:
 									
-									prompt = last_node.last_run_messages[agent]
+									prompt = last_node.last_run_messages[last_node.main_agent]
 									dic_sub_agent_split_messages = child_node.run_node(prompt=prompt)
 
 									dic_nodes_message_outputs[child_node] = dic_sub_agent_split_messages
