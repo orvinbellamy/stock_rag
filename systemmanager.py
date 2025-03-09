@@ -573,7 +573,7 @@ class MultiNodeManager():
 			dic_message_with_instructions[key] = messages['message_with_instructions']
 
 		# We loop from the hierarchy from bottom-up this time
-		for depth in range(self.hierarchy,1,-1):
+		for depth in range(len(self.hierarchy),0,-1):
 			
 			# Get all nodes in this hierarchy
 			list_of_nodes = self.hierarchy[depth]
