@@ -11,50 +11,64 @@ from eventhandler import ThreadManager
 with open('config/dataframe_schemas.json', 'r') as f:
     schemas = json.load(f)
 
-def stock_data_setup(client: OpenAI, ticker: list, type: Literal['price', 'cash', 'income', 'news'], dic_files:dict=None):
+def stock_data_setup(
+	client: OpenAI, 
+	ticker: list,
+	config:dict, 
+	dic_files:dict=None
+	):
 
 	OPENAI_DIC_FILE_NAME = 'openai_files.json'
-
+	dic_data_collection = {}
 	yf_handler = YFHandler(stock_list=ticker, schemas=schemas)
 
-	if type == 'price':
-		df = yf_handler.import_stocks()
-		stock_data_file_name = 'df_stocks.csv'
-		
-	elif type == 'cash':
-		df = yf_handler.import_cashflow()
-		stock_data_file_name = 'df_cashflow.csv'
+	# Mapping of data types to file names and handler methods
+	data_mapping = {
+		'price': {
+			'file_name': 'df_stocks.csv',
+			'method': 'import_stocks'
+		},
+		'cashflow': {
+			'file_name': 'df_cashflow.csv',
+			'method': 'import_cashflow'
+		},
+		'income_statement': {
+			'file_name': 'df_income_stmt.csv',
+			'method': 'import_income_stmt'
+		},
+		'balance_sheet': {
+			'file_name': 'df_balance_sheet.csv',
+			'method': 'import_balance_sheet'
+		}
+	}
 
-	elif type == 'income':
-		df = yf_handler.import_income_stmt()
-		stock_data_file_name = 'df_income_stmt.csv'
+	# Loop each data requested (i.e. stock price, cashflow, income statement)
+	for data_requested, data_config in config.items():
 
-	elif type == 'news':
-		_, dic_articles = yf_handler.get_stock_news(max_news=10)
+		# If it exists in data_mapping (i.e. it's a valid data from yfinance)
+		if data_requested in data_mapping.keys():
+			
+			# Get the right method from YFHandler
+			import_method = getattr(yf_handler, data_mapping[data_requested]['method'])
 
-		return dic_articles
+			# Execute the method to get the data
+			df_data = import_method(period=data_config['period'])
 
-	else:
-		raise ValueError('Stock data type is not properly defined.')
-	
-	if dic_files is None:
-		raise ValueError("If type is not 'news', then you need to define dic_files parameter.")
-	
-	# Write to CSV
-	# Technically this will be done by the FileHandler but just to be safe
-	df.to_csv(f'openai_upload_files/{stock_data_file_name}', index=False)
+			# Create a FileHandler object
+			file_handler = FileHandler(
+				df=df_data,
+				dic_file=dic_files,
+				file_name=data_mapping[data_requested]['file_name'],
+				dic_file_name=OPENAI_DIC_FILE_NAME,
+				client=client
+			)
 
-	file_stock_data = FileHandler(
-		df=df,
-		dic_file=dic_files,
-		file_name=stock_data_file_name,
-		dic_file_name=OPENAI_DIC_FILE_NAME,
-		client=client
-	)
-	
-	file_stock_data.update_openai_file(dic_file=dic_files)
-		
-	return file_stock_data
+			file_handler.update_openai_file()
+
+			# Store the file handler in the collection
+			dic_data_collection[data_requested] = file_handler
+
+	return dic_data_collection
 
 def analyze_stock(ticker: list, dic_files: dict, dic_assistants: dict):
 	
