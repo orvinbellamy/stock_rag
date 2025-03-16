@@ -100,7 +100,7 @@ class SystemNode:
 		# Inner join with df_messages to get the latest message
 		df_last_messages = pd.merge(df_max_loc, self.thread.df_messages[['assistant_id', '_msg_loc', 'message_text']], how='inner', on=['assistant_id', '_msg_loc'])
 
-		# If main_agent is False, it means we have to exclude it.
+		# If main_agent is False, means we want to exclude the main agent's last messages.
 		if not main_agent:
 
 			# Filter out main_agent
@@ -603,4 +603,12 @@ class MultiNodeManager():
 		
 		# This will be the node_message_output from hierarchy=1
 		# i.e. the main node
+		return node_message_output
+	
+	def run(self, prompt:str):
+
+		dic_nodes_messages_output = self._run_nodes_downward(prompt=prompt)
+
+		node_message_output = self._run_nodes_upward(nodes_messages=dic_nodes_messages_output)
+
 		return node_message_output
